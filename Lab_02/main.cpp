@@ -1,42 +1,11 @@
-//#include <iostream>
-//#include <string>
-//#include <fstream>
-//
-//using namespace std;
-//
-//const int SIZE = 10;
-//
-//int main() {
-//	string line[SIZE];
-//	string filename;
-//
-//	cout << "file name ? : ";
-//	cin >> filename;
-//
-//	ifstream file(filename);
-//
-//	if (!file) {
-//		cout << "Failed to open the file." << endl;
-//		return 1;
-//	}
-//	for (int i = 0;i < SIZE; i++) {
-//		getline(file, line[i]);
-//	}
-//	file.close();
-//
-//	for (int i = 0;i < SIZE;i++) {
-//		cout << line[i] << endl;
-//	}
-//	return 0;
-//}
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <cctype>
+#include <windows.h>
 
 using namespace std;
-
 
 void PrintOrigin(const vector<string>& sentences) {
     for (int i = 0;i < sentences.size(); i++) {
@@ -57,6 +26,96 @@ void PrintChange(const vector<string>& sentences) {
             else {
 				cout << ch;
             }
+        }
+        cout << endl;
+    }
+}
+
+void Command_b(const vector<string>& sentences) {
+    for (int i = 0;i < sentences.size(); i++) {
+        bool word = false;
+        int wordcount = 0;
+        for (int j = 0;j < sentences[i].length();j++) {
+            char ch = sentences[i][j];
+            if (ch == ' ') {
+                word = false;
+            }
+            else if (!word) {
+                word = true;
+                wordcount++;
+            }
+        }
+        cout << sentences[i] << " | WordCount = " << wordcount << endl;
+    }
+}
+
+void Command_c(const vector<string>& sentences) {
+    int uppercount = 0;
+    for (int i = 0;i < sentences.size(); i++) {
+        bool word = false;
+
+        for (int j = 0; j < sentences[i].length(); j++) {
+            char ch = sentences[i][j];
+            if (ch == ' ') {
+                word = false;
+            }
+            else if (!word) {
+                word = true;
+                SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+                if (isupper(ch)) {
+                    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 12);
+                    uppercount++;
+                }
+            }
+            cout << sentences[i][j];
+        }
+        cout << endl;
+    }
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+    cout << "Uppercount = " << uppercount << endl;
+}
+
+void Command_d(const vector<string>& sentences) {
+    for (int i = 0;i < sentences.size();i++) {
+        for (int j = sentences[i].length()-1;j >= 0;j--) {
+            cout << sentences[i][j];
+        }
+        cout << endl;
+    }
+}
+
+void Command_e(const vector<string>& sentences) {
+    for (int i = 0;i < sentences.size();i++) {
+        for (int j = 0;j < sentences[i].length();j++) {
+            char ch = sentences[i][j];
+            if (ch == ' ') {
+                ch = '*';
+            }
+            cout << ch;
+        }
+        cout << endl;
+    }
+}
+
+void Command_f(const vector<string>& sentences) {
+    for (int i = 0; i < sentences.size();i++) {
+        string word = "";
+        
+        for (int j = 0; j < sentences[i].length();j++) {
+            char ch = sentences[i][j];
+            if (ch == ' ' || ch == '*') {
+                for (int k = word.length() - 1; k >= 0; k--) {
+                    cout << word[k];
+                }
+                word = "";
+                cout << ch;
+            }
+            else {
+                word += ch;
+            }
+        }
+        for (int k = word.length() - 1; k >= 0; k--) {
+            cout << word[k];
         }
         cout << endl;
     }
@@ -87,6 +146,10 @@ int main() {
         cout << sentences[i] << endl;
     }
 
+    bool toggle_c = false;
+    bool toggle_d = false;
+    bool toggle_e = false;
+    bool toggle_f = false;
 
     while (true) {
 		cin >> command;
@@ -98,6 +161,46 @@ int main() {
             }
 			else {
 				PrintOrigin(sentences);
+            }
+        }
+        else if (command == 'b') {
+            Command_b(sentences);
+        }
+        else if (command == 'c') {
+            toggle_c = !toggle_c;
+            if (toggle_c) {
+                Command_c(sentences);
+            }
+            else {
+                PrintOrigin(sentences);
+            }
+            
+        }
+        else if (command == 'd') {
+            toggle_d = !toggle_d;
+            if (toggle_d) {
+                Command_d(sentences);
+            }
+            else {
+                PrintOrigin(sentences);
+            }
+        }
+        else if (command == 'e') {
+            toggle_e = !toggle_e;
+            if (toggle_e) {
+                Command_e(sentences);
+            }
+            else {
+                PrintOrigin(sentences);
+            }
+        }
+        else if (command == 'f') {
+            toggle_f = !toggle_f;
+            if (toggle_f) {
+                Command_f(sentences);
+            }
+            else {
+                PrintOrigin(sentences);
             }
         }
 		else if (command == 'q') {
