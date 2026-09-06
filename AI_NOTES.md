@@ -17,14 +17,24 @@
 
 ## Local Automation
 - User command phrase: `컴그 시작하자`
-- Automation script: `C:\Users\USER\start-comg.ps1`
-- Script behavior:
-  - Opens `computer_grapics.slnx` in Visual Studio.
-  - Opens ChatGPT app and places it on the left half of the primary monitor.
-  - Opens YouTube Music as the installed Chrome app if available, otherwise falls back to Chrome app mode.
-  - Maximizes YouTube Music and sends it behind the other windows.
-  - Places Visual Studio on the right half of the primary monitor.
-  - Re-applies Visual Studio placement after delays because Visual Studio can restore its old window position after solution load.
+- The notebook and desktop have different layouts; do not overwrite one with the other.
+- Desktop setup (updated 2026-09-06):
+  - Repository: `C:\Users\user\source\repos\Computer_Grapics\Computer_Grapics`.
+  - Entry point: `C:\Users\user\start-comg.ps1`.
+  - Git-tracked implementation: `scripts\start-comg-desktop.ps1` (solution resolved relative to the script).
+  - When the user says `컴그 시작하자` on the desktop, run this script to open the apps and arrange them.
+  - Use the primary monitor's working area, excluding the taskbar, split into three columns.
+  - Left: ChatGPT; YouTube Music in the same column behind ChatGPT.
+  - Center: the user's existing PowerShell / Windows Terminal window, or a new PowerShell if none exists.
+  - Right: Visual Studio with `computer_grapics.slnx` open.
+  - Launch closed apps. If the user closes apps before starting, actually reopen them; arranging existing windows alone is not sufficient.
+  - Existing matching windows are retained to avoid duplicate apps or losing work.
+  - Prefer the installed YouTube Music Chrome app; fall back to Chrome app mode.
+  - Reapply placement after startup to counter restored window positions.
+  - If several terminal windows exist, use `-TerminalWindowHandle` to identify the intended one.
+  - `-Inspect` reports current windows without launching or moving them.
+  - The home-directory entry point is local; commit/push the tracked script and this note to transfer them to another machine.
+- Previous notebook setup: local `start-comg.ps1` places ChatGPT on the left half, Visual Studio on the right half, and maximizes YouTube Music behind them. Preserve this notebook layout unless the user asks to change it.
 
 ## Warm-up 1 Assignment Mapping
 - Assignment PDF: `docs\컴그 워밍업 1.pdf`
