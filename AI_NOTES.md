@@ -122,3 +122,17 @@
   - `05d6647 Initial project setup`
 - `origin/main` was synchronized through commit `88ecd11` before this note update.
 - Desktop repository-local Git identity matches the existing history: `Cho-Jeonghyeon <69703120+Cho-Jeonghyeon@users.noreply.github.com>`.
+
+## 2026-09-08 Work Note
+- User asked to commit and push current progress even though known bugs remain.
+- Known Lab_01 issue:
+  - Problem 1 has a bug around `e` / `f` toggles combined with `+` / `-`.
+  - Recheck how base matrices and active view modes interact after increment/decrement commands.
+- Current Lab_02 progress:
+  - `g`: replaces a requested character with another requested character. Pressing `g` again prints the original sentences.
+  - `h`: finds digits and moves the following text to the next line; skips a leading space after the inserted newline.
+  - `i`: reads a search word, prints matching words in color, and counts matches case-insensitively.
+  - `j`: currently added but still buggy.
+- Known Lab_02 `j` issue:
+  - Current `Command_j` changes the loop variable `i` inside the loop.
+  - Intended simple form: for each index `i`, print `sentences[(i + 1) % sentences.size()]`.

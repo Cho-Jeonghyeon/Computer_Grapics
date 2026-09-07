@@ -121,6 +121,99 @@ void Command_f(const vector<string>& sentences) {
     }
 }
 
+void Command_g(const vector<string>& sentences, const char change_before, const char change_after) {
+
+    for (int i = 0; i < sentences.size(); i++) {
+        for (int j = 0; j < sentences[i].length(); j++) {
+            if (sentences[i][j] == change_before) {
+                cout << change_after;
+            } else {
+                cout << sentences[i][j];
+            }
+        }
+        cout << endl;
+    }
+}
+
+void Command_h(const vector <string>& sentences) {
+    for (int i = 0;i < sentences.size(); i++) {
+        bool newline = false;
+        for (int j = 0;j < sentences[i].length();j++) {
+            if (newline && sentences[i][j] == ' ') {
+                continue;
+            }
+            cout << sentences[i][j];
+
+            if (isdigit(sentences[i][j])) {
+                cout << endl;
+				newline = true;
+            }
+            else {
+				newline = false;
+            }
+        }
+        cout << endl;
+    }
+}
+
+void Command_i(const vector<string>& sentences, const string& find_word) {
+    string lower_find_word = "";
+    int find_count = 0;
+
+    for (int i = 0; i < find_word.length(); i++) {
+        lower_find_word += static_cast<char>(tolower(find_word[i])); //일단 소문자로
+    }
+
+    for (int i = 0; i < sentences.size(); i++) {
+        string word = "";
+
+        for (int j = 0; j <= sentences[i].length(); j++) {
+            if (j == sentences[i].length() || sentences[i][j] == ' ') { //그 문장을 다 돌았거나 빈칸이면(단어)
+                if (word != "") { // 그리고 또한 단어가 비어있지 않다면
+                    string lower_word = "";
+
+                    for (int k = 0; k < word.length(); k++) {
+                        lower_word += static_cast<char>(tolower(word[k])); //그 단어를 소문자로 바꿈
+                    }
+
+                    if (lower_word == lower_find_word) {
+                        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 12);
+                        cout << word;
+                        SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+                        find_count++;
+                    }
+                    else {
+                        cout << word;
+                    }
+
+                    word = "";
+                }
+
+                if (j != sentences[i].length()) {
+                    cout << sentences[i][j];
+                }
+            }
+            else {
+                word += sentences[i][j]; //단어가 완성될때까지 문자를 더함
+            }
+        }
+
+        cout << endl;
+    }
+
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+    cout << "count = " << find_count << endl;
+}
+
+void Command_j(const vector<string>& sentences) {
+    for (int i = 0; i < sentences.size(); i++) {
+        if (i+1 == sentences.size()) {
+            i = 0;
+        }
+        cout << sentences[i+1] << endl;
+    }
+}
+
 int main() {
     string fileName;
     vector<string> sentences;
@@ -150,6 +243,11 @@ int main() {
     bool toggle_d = false;
     bool toggle_e = false;
     bool toggle_f = false;
+	bool toggle_g = false;
+    bool toggle_h = false;
+    string find_word;
+	char change_before = ' ';
+	char change_after = ' ';
 
     while (true) {
 		cin >> command;
@@ -202,6 +300,34 @@ int main() {
             else {
                 PrintOrigin(sentences);
             }
+        }
+        else if (command == 'g') {
+            toggle_g = !toggle_g;
+            if (toggle_g) {
+				cin >> change_before >> change_after;
+				Command_g(sentences, change_before, change_after);
+			}
+            else {
+                PrintOrigin(sentences);
+                change_before = ' ';
+                change_after = ' ';
+            }
+        }
+        else if (command == 'h') {
+            toggle_h = !toggle_h;
+            if (toggle_h) {
+                Command_h(sentences);
+            }
+            else {
+				PrintOrigin(sentences);
+            }
+        }
+        else if (command == 'i') {
+            cin >> find_word;
+            Command_i(sentences, find_word);
+        }
+        else if (command == 'j') {
+			Command_j(sentences);
         }
 		else if (command == 'q') {
 			break;
