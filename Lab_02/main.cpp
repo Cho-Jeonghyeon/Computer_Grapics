@@ -207,10 +207,13 @@ void Command_i(const vector<string>& sentences, const string& find_word) {
 
 void Command_j(const vector<string>& sentences) {
     for (int i = 0; i < sentences.size(); i++) {
-        if (i+1 == sentences.size()) {
-            i = 0;
+        if (i == 0) {
+            cout << sentences[sentences.size()-1] << endl;
         }
-        cout << sentences[i+1] << endl;
+        else {
+            cout << sentences[i-1] << endl;
+        }
+       
     }
 }
 
