@@ -132,7 +132,21 @@
   - `g`: replaces a requested character with another requested character. Pressing `g` again prints the original sentences.
   - `h`: finds digits and moves the following text to the next line; skips a leading space after the inserted newline.
   - `i`: reads a search word, prints matching words in color, and counts matches case-insensitively.
-  - `j`: currently added but still buggy.
-- Known Lab_02 `j` issue:
-  - Current `Command_j` changes the loop variable `i` inside the loop.
-  - Intended simple form: for each index `i`, print `sentences[(i + 1) % sentences.size()]`.
+  - `j`: initially added with a loop-index bug; resolved in the 2026-09-09 update below.
+
+## 2026-09-09 Desktop Handoff
+- `Lab_01` was reviewed and built successfully with 0 errors.
+- `Lab_01` verification results:
+  - `e` alone correctly subtracts each row minimum, and pressing `e` again restores the base matrices.
+  - `f` alone correctly adds each column maximum, and pressing `f` again restores the base matrices.
+  - `+` and `-` alone correctly use modulo 10, including the `9 -> 0` and `0 -> 9` transitions.
+  - Known combination bug remains: while `e` or `f` is active, `+` / `-` changes the base matrices and then recalculates the active view. The visible values therefore do not consistently increase/decrease by one, and `f` combinations can display values above 9.
+  - `UpdateCurrentMatrix()` always applies `e` before `f` when both modes are active, regardless of the order in which the commands were entered.
+- `Lab_02` update:
+  - `Command_j` now performs a cyclic downward shift: the final sentence is printed first, followed by sentences from the beginning through the second-to-last sentence.
+  - `Lab_02` Debug x64 build succeeds with the three previously known C4267 warnings.
+- `Lab_03` has been started as an incomplete deque-based draft in `Lab_03/main.cpp`.
+  - Current draft defines `SIZE`, `Deque`, `init_deque()`, `is_empty()`, and `is_full()`.
+  - Additional deque functions were copied/adapted but still refer to undeclared sample names such as `DequeType`, `element`, `MAX_QUEUE_SIZE`, `error`, and `deque_print`.
+  - `Lab_03` does not build yet; continue by making the type/constant/function names consistent and then adapt the deque to store the assignment's `(x, y, z)` point structure with up to 10 slots.
+  - A C4819 source-encoding warning is also present because Korean comments are not representable in code page 949.
