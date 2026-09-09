@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <cctype>
 #include <string>
 
 using namespace std;
@@ -12,8 +13,9 @@ bool opened[MAX_SIZE][MAX_SIZE];
 int rowSize;
 int colSize;
 int totalCard;
+int openCount;
 
-void print_board() {
+void print_board(int r1 = -1, int c1 = -1, int r2 = -1, int c2 = -1) {
     cout << "   ";
 
     for (int c = 0; c < colSize; c++) {
@@ -25,7 +27,9 @@ void print_board() {
         cout << r + 1 << "  ";
 
         for (int c = 0; c < colSize; c++) {
-            if (opened[r][c]) {
+            bool selected = (r == r1 && c == c1) || (r == r2 && c == c2);
+
+            if (opened[r][c] || selected) {
                 cout << board[r][c] << "   ";
             }
             else {
@@ -52,6 +56,8 @@ void init_game() {
     int cardIndex = 0;
     int pairCount = totalCard / 2;
 
+    openCount = 0;
+
     for (int i = 0; i < pairCount; i++) {
         cards[cardIndex++] = static_cast<char>('a' + i);
         cards[cardIndex++] = static_cast<char>('a' + i);
@@ -76,6 +82,56 @@ void init_game() {
     }
 }
 
+bool read_position(const string& input, int& row, int& col) {
+    if (input.length() < 2) {
+        return false;
+    }
+
+    char colChar = static_cast<char>(tolower(input[0]));
+    char rowChar = input[1];
+
+    col = colChar - 'a';
+    row = rowChar - '1';
+
+    if (row < 0 || row >= rowSize || col < 0 || col >= colSize) {
+        return false;
+    }
+
+    return true;
+}
+
+void open_card(int row, int col) {
+    if (!opened[row][col]) {
+        opened[row][col] = true;
+        openCount++;
+    }
+}
+
+void check_card(int r1, int c1, int r2, int c2) {
+    if (r1 == r2 && c1 == c2) {
+        cout << "same card" << endl;
+        return;
+    }
+
+    if (opened[r1][c1] || opened[r2][c2]) {
+        cout << "already opened" << endl;
+        return;
+    }
+
+    print_board(r1, c1, r2, c2);
+
+    if (board[r1][c1] == board[r2][c2] || board[r1][c1] == '@' || board[r2][c2] == '@') {
+        open_card(r1, c1);
+        open_card(r2, c2);
+        cout << "match" << endl;
+    }
+    else {
+        cout << "not match" << endl;
+    }
+
+    print_board();
+}
+
 int main() {
     srand(static_cast<unsigned int>(time(0)));
 
@@ -92,11 +148,24 @@ int main() {
     print_board();
 
     while (true) {
-        string input;
-        cin >> input;
+        string firstInput;
+        cin >> firstInput;
 
-        if (input == "q") {
+        if (firstInput == "q") {
             break;
+        }
+        else {
+            string secondInput;
+            int r1, c1, r2, c2;
+            cin >> secondInput;
+
+            if (!read_position(firstInput, r1, c1) || !read_position(secondInput, r2, c2)) {
+                cout << "wrong input" << endl;
+                print_board();
+            }
+            else {
+                check_card(r1, c1, r2, c2);
+            }
         }
     }
 
