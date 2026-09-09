@@ -64,6 +64,10 @@ bool add_rear(Deque& q, Point item) {
         return false;
     }
 
+    while (q.used[q.rear]) {
+        q.rear = (q.rear + 1) % SIZE;
+    }
+
     q.data[q.rear] = item;
     q.used[q.rear] = true;
     q.rear = (q.rear + 1) % SIZE;
@@ -118,6 +122,35 @@ bool delete_front(Deque& q, Point& item) {
     return true;
 }
 
+void move_down(Deque& q) {
+    if (::is_empty(q)) {
+        return;
+    }
+
+    Point tempData[SIZE];
+    bool tempUsed[SIZE];
+
+    for (int i = 0; i < SIZE; i++) {
+        tempUsed[i] = false;
+    }
+
+    for (int i = 0; i < SIZE; i++) {
+        if (q.used[i]) {
+            int moveIndex = (i - 1 + SIZE) % SIZE;
+            tempData[moveIndex] = q.data[i];
+            tempUsed[moveIndex] = true;
+        }
+    }
+
+    for (int i = 0; i < SIZE; i++) {
+        q.data[i] = tempData[i];
+        q.used[i] = tempUsed[i];
+    }
+
+    q.front = (q.front - 1 + SIZE) % SIZE;
+    q.rear = (q.rear - 1 + SIZE) % SIZE;
+}
+
 int main() {
     Deque list;
     init_deque(list);
@@ -149,6 +182,17 @@ int main() {
         else if (command == 'd') {
             Point removed;
             delete_front(list, removed);
+            deque_print(list);
+        }
+        else if (command == 'a') {
+            cout << "count = " << list.count << endl;
+        }
+        else if (command == 'b') {
+            move_down(list);
+            deque_print(list);
+        }
+        else if (command == 'c') {
+            init_deque(list);
             deque_print(list);
         }
         else if (command == 'q') {
