@@ -19,7 +19,21 @@ int tryCount;
 int maxTry;
 int score;
 
-void print_board(int r1 = -1, int c1 = -1, int r2 = -1, int c2 = -1) {
+void set_color(int color) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
+
+void reset_color() {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+}
+
+void clear_screen() {
+    system("cls");
+}
+
+void print_board(int r1 = -1, int c1 = -1, int r2 = -1, int c2 = -1, bool showAll = false) {
+    clear_screen();
+
     cout << "try: " << tryCount << " / " << maxTry << "   score: " << score << endl;
     cout << "   ";
 
@@ -34,8 +48,23 @@ void print_board(int r1 = -1, int c1 = -1, int r2 = -1, int c2 = -1) {
         for (int c = 0; c < colSize; c++) {
             bool selected = (r == r1 && c == c1) || (r == r2 && c == c2);
 
-            if (opened[r][c] || selected) {
-                cout << board[r][c] << "   ";
+            if (opened[r][c] || selected || showAll) {
+                char ch = board[r][c];
+
+                if (opened[r][c] && ch != '@') {
+                    ch = static_cast<char>(toupper(ch));
+                    set_color(10);
+                }
+                else if (ch == '@') {
+                    set_color(14);
+                }
+                else {
+                    set_color(11);
+                }
+
+                cout << ch;
+                reset_color();
+                cout << "   ";
             }
             else {
                 cout << "*   ";
@@ -90,24 +119,6 @@ void init_game() {
     }
 }
 
-bool is_game_clear() {
-    return openCount == totalCard;
-}
-
-void print_hint() {
-    cout << "hint" << endl;
-
-    for (int r = 0; r < rowSize; r++) {
-        for (int c = 0; c < colSize; c++) {
-            cout << board[r][c] << "   ";
-        }
-        cout << endl;
-    }
-
-    Sleep(1000);
-    print_board();
-}
-
 bool read_position(const string& input, int& row, int& col) {
     if (input.length() < 2) {
         return false;
@@ -124,6 +135,10 @@ bool read_position(const string& input, int& row, int& col) {
     }
 
     return true;
+}
+
+bool is_game_clear() {
+    return openCount == totalCard;
 }
 
 void open_card(int row, int col) {
@@ -152,14 +167,14 @@ void check_card(int r1, int c1, int r2, int c2) {
         open_card(r1, c1);
         open_card(r2, c2);
         score += 10;
+        print_board();
         cout << "match" << endl;
     }
     else {
         score -= 1;
+        print_board();
         cout << "not match" << endl;
     }
-
-    print_board();
 }
 
 int main() {
@@ -189,7 +204,9 @@ int main() {
             print_board();
         }
         else if (firstInput == "h") {
-            print_hint();
+            print_board(-1, -1, -1, -1, true);
+            Sleep(1000);
+            print_board();
         }
         else {
             string secondInput;
@@ -218,5 +235,6 @@ int main() {
         }
     }
 
+    reset_color();
     return 0;
 }
