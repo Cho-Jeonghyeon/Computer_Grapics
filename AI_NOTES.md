@@ -150,3 +150,29 @@
   - Additional deque functions were copied/adapted but still refer to undeclared sample names such as `DequeType`, `element`, `MAX_QUEUE_SIZE`, `error`, and `deque_print`.
   - `Lab_03` does not build yet; continue by making the type/constant/function names consistent and then adapt the deque to store the assignment's `(x, y, z)` point structure with up to 10 slots.
   - A C4819 source-encoding warning is also present because Korean comments are not representable in code page 949.
+
+## 2026-09-09 Warming-up Completion
+- User said the warming-up assignment period has passed and asked to split the finished work into several commits instead of one large commit.
+- `Lab_03` was finished in a deliberately simple student-style C++ implementation:
+  - Uses `Point { x, y, z }`, fixed arrays, `bool used[10]`, and simple loops.
+  - Keeps `front`, `rear`, and `count` for the deque-style list, but uses `used[]` to decide which visual slots are actually filled.
+  - `+`: inserts at the top-side rear position, first moving `rear` forward until an empty slot is found to avoid overwriting existing data after sparse operations.
+  - `-`: deletes from the top-side rear position.
+  - `e`: inserts at index 0 and shifts existing points upward, matching the page 8 example.
+  - `d`: deletes from the bottom by clearing the used flag, so the deleted slot remains visually empty.
+  - `a`: prints the stored point count.
+  - `b`: moves occupied slots down by one index with wraparound.
+  - `c`: clears the list.
+  - `f`: prints a distance-from-origin view sorted in ascending distance, displayed from index 0 upward without preserving sparse gaps.
+  - `g`: checks all used point pairs with nested loops and prints the nearest and farthest pair.
+- `Lab_04` was implemented as a simple console card matching game:
+  - Uses global `board[6][6]` and `opened[6][6]` arrays.
+  - Accepts board dimensions from 3 to 6.
+  - Creates paired lowercase cards, adds `@` joker for odd board sizes, shuffles with `rand()`, and hides cards as `*`.
+  - Accepts positions like `a1 c3`, opens matching cards as uppercase, and lets joker match any card.
+  - Supports `r` reset, `h` temporary full reveal, and `q` quit.
+  - Tracks attempts and score.
+  - Uses `system("cls")` in `print_board()` for a game-like redraw instead of cumulative console output.
+- Build verification:
+  - `Lab_03` Debug x64 builds with 0 warnings and 0 errors.
+  - `Lab_04` Debug x64 builds with 0 warnings and 0 errors.
