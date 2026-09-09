@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cctype>
 #include <string>
+#include <windows.h>
 
 using namespace std;
 
@@ -14,8 +15,12 @@ int rowSize;
 int colSize;
 int totalCard;
 int openCount;
+int tryCount;
+int maxTry;
+int score;
 
 void print_board(int r1 = -1, int c1 = -1, int r2 = -1, int c2 = -1) {
+    cout << "try: " << tryCount << " / " << maxTry << "   score: " << score << endl;
     cout << "   ";
 
     for (int c = 0; c < colSize; c++) {
@@ -57,6 +62,9 @@ void init_game() {
     int pairCount = totalCard / 2;
 
     openCount = 0;
+    tryCount = 0;
+    score = 0;
+    maxTry = totalCard * 2;
 
     for (int i = 0; i < pairCount; i++) {
         cards[cardIndex++] = static_cast<char>('a' + i);
@@ -80,6 +88,24 @@ void init_game() {
             opened[r][c] = false;
         }
     }
+}
+
+bool is_game_clear() {
+    return openCount == totalCard;
+}
+
+void print_hint() {
+    cout << "hint" << endl;
+
+    for (int r = 0; r < rowSize; r++) {
+        for (int c = 0; c < colSize; c++) {
+            cout << board[r][c] << "   ";
+        }
+        cout << endl;
+    }
+
+    Sleep(1000);
+    print_board();
 }
 
 bool read_position(const string& input, int& row, int& col) {
@@ -118,14 +144,18 @@ void check_card(int r1, int c1, int r2, int c2) {
         return;
     }
 
+    tryCount++;
     print_board(r1, c1, r2, c2);
+    Sleep(1000);
 
     if (board[r1][c1] == board[r2][c2] || board[r1][c1] == '@' || board[r2][c2] == '@') {
         open_card(r1, c1);
         open_card(r2, c2);
+        score += 10;
         cout << "match" << endl;
     }
     else {
+        score -= 1;
         cout << "not match" << endl;
     }
 
@@ -154,6 +184,13 @@ int main() {
         if (firstInput == "q") {
             break;
         }
+        else if (firstInput == "r") {
+            init_game();
+            print_board();
+        }
+        else if (firstInput == "h") {
+            print_hint();
+        }
         else {
             string secondInput;
             int r1, c1, r2, c2;
@@ -166,6 +203,18 @@ int main() {
             else {
                 check_card(r1, c1, r2, c2);
             }
+        }
+
+        if (is_game_clear()) {
+            cout << "game clear" << endl;
+            cout << "score = " << score << endl;
+            break;
+        }
+
+        if (tryCount >= maxTry) {
+            cout << "game over" << endl;
+            cout << "score = " << score << endl;
+            break;
         }
     }
 
