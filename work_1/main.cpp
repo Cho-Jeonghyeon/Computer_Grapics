@@ -1,6 +1,18 @@
 #include <gl/glew.h>
 #include <gl/glfw3.h>
+#include <cstdlib>
+#include <ctime>
 #include <iostream>
+
+float rColor = 1.0f;
+float gColor = 1.0f;
+float bColor = 1.0f;
+bool timerRunning = false;
+double lastColorChangeTime = 0.0;
+
+void SetRandomColor();
+void InputProcess(GLFWwindow* window);
+void DrawScene();
 
 int main() {
 	//--- GLFW 초기화
@@ -21,7 +33,7 @@ int main() {
 	}
 	//--- 컨텍스트 설정
 	glfwMakeContextCurrent(window);
-	//--- GLEW 초기화
+	//--- GLEW 초기화e
 	glewExperimental = GL_TRUE; // 최신 기능 사용
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "GLEW 초기화 실패!" << std::endl;
@@ -30,14 +42,13 @@ int main() {
 
 	//--- 뷰포트 설정
 	glViewport(0, 0, 800, 600);
+	std::srand(static_cast<unsigned int>(std::time(nullptr)));
 	//--- 메인 루프
 	while (!glfwWindowShouldClose(window)) {
 		// 입력 처리
-		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-			glfwSetWindowShouldClose(window, true);
+		InputProcess(window);
 		// 화면 지우기 (파란색)
-		glClearColor(0.0f, 0.0f, 1.0f, 1.0f); // RGBA (파랑)
-		glClear(GL_COLOR_BUFFER_BIT);
+		DrawScene();
 		// 버퍼 교체
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -48,3 +59,84 @@ int main() {
 	return 0;
 }
 
+//--- 키보드 입력 처리 함수
+void InputProcess(GLFWwindow* window)
+{
+	static bool aKeyPressed = false;
+	static bool tKeyPressed = false;
+	static bool sKeyPressed = false;
+
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+	if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
+	{
+		rColor = 0.0f;
+		gColor = 1.0f;
+		bColor = 1.0f;
+	}
+	if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS)
+	{
+		rColor = 1.0f;
+		gColor = 0.0f;
+		bColor = 1.0f;
+	}
+	if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS)
+	{
+		rColor = 1.0f;
+		gColor = 1.0f;
+		bColor = 0.0f;
+	}
+	if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
+	{
+		rColor = 0.5f;
+		gColor = 0.5f;
+		bColor = 0.5f;
+	}
+	if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+	{
+		rColor = 0.0f;
+		gColor = 0.0f;
+		bColor = 0.0f;
+	}
+
+	bool aKeyDown = glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS;
+	if (aKeyDown && !aKeyPressed)
+		SetRandomColor();
+	aKeyPressed = aKeyDown;
+
+	bool tKeyDown = glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS;
+	if (tKeyDown && !tKeyPressed)
+	{
+		timerRunning = true;
+		lastColorChangeTime = glfwGetTime();
+	}
+	tKeyPressed = tKeyDown;
+
+	bool sKeyDown = glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS;
+	if (sKeyDown && !sKeyPressed)
+		timerRunning = false;
+	sKeyPressed = sKeyDown;
+
+	if (timerRunning)
+	{
+		double currentTime = glfwGetTime();
+		if (currentTime - lastColorChangeTime >= 1.0)
+		{
+			SetRandomColor();
+			lastColorChangeTime = currentTime;
+		}
+	}
+}
+//--- 렌더링 함수
+void DrawScene()
+{
+	glClearColor(rColor, gColor, bColor, 1.0f); // RGBA (파랑)
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void SetRandomColor()
+{
+	rColor = static_cast<float>(std::rand()) / RAND_MAX;
+	gColor = static_cast<float>(std::rand()) / RAND_MAX;
+	bColor = static_cast<float>(std::rand()) / RAND_MAX;
+}
