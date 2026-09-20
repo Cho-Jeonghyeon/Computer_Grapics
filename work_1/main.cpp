@@ -33,7 +33,7 @@ int main() {
 	}
 	//--- 컨텍스트 설정
 	glfwMakeContextCurrent(window);
-	//--- GLEW 초기화e
+	//--- GLEW 초기화
 	glewExperimental = GL_TRUE; // 최신 기능 사용
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "GLEW 초기화 실패!" << std::endl;

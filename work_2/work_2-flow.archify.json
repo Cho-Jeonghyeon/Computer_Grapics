@@ -1,0 +1,83 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "work_2 OpenGL 프로그램 동작 흐름",
+    "quality_profile": "showcase",
+    "output": "work_2-flow.html"
+  },
+  "lanes": [
+    { "id": "startup", "label": "초기화" },
+    { "id": "interaction", "label": "사용자 입력" },
+    { "id": "state", "label": "프로그램 상태" },
+    { "id": "render", "label": "OpenGL 렌더링" },
+    { "id": "defect", "label": "현재 코드의 문제", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "boot", "label": "시작", "fromCol": 0, "toCol": 2 },
+    { "id": "loop", "label": "프레임 루프", "fromCol": 3, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": ["start", "initialize", "setup", "read_input", "update_state", "draw_scene", "present"],
+  "semanticChecks": {
+    "allowedRoots": ["start"],
+    "allowedTerminals": ["early_exit"],
+    "requiredPaths": [
+      { "from": "start", "to": "present" },
+      { "from": "start", "to": "early_exit" }
+    ]
+  },
+  "nodes": [
+    { "id": "start", "lane": "startup", "col": 0, "type": "external", "label": "main() 시작", "sublabel": "800×600 OpenGL 앱", "width": 142 },
+    { "id": "initialize", "lane": "startup", "col": 1, "type": "backend", "label": "GLFW 초기화", "sublabel": "컨텍스트 준비", "width": 142 },
+    { "id": "setup", "lane": "startup", "col": 2, "type": "backend", "label": "창·GLEW·콜백 설정", "sublabel": "OpenGL 3.3 호환 프로필", "width": 166 },
+    { "id": "read_input", "lane": "interaction", "col": 3, "type": "frontend", "label": "입력 읽기", "sublabel": "키보드 + 마우스", "width": 142 },
+    { "id": "update_state", "lane": "state", "col": 4, "type": "database", "label": "사각형 상태 변경", "sublabel": "생성·선택·크기·색", "width": 158 },
+    { "id": "draw_scene", "lane": "render", "col": 4, "type": "backend", "label": "DrawScene()", "sublabel": "4분할 배경과 사각형", "width": 150 },
+    { "id": "present", "lane": "render", "col": 5, "type": "frontend", "label": "프레임 표시", "sublabel": "SwapBuffers + PollEvents", "width": 166 },
+    { "id": "create", "lane": "state", "col": 3, "type": "backend", "label": "1~4: 사각형 생성", "sublabel": "영역마다 최대 5개", "width": 158 },
+    { "id": "edit", "lane": "interaction", "col": 4, "type": "messagebus", "label": "선택 항목 편집", "sublabel": "+/− 크기, C 색상, R 초기화", "width": 182 },
+    { "id": "comment_bug", "lane": "defect", "col": 1, "type": "security", "label": "초기화 if가 주석 처리됨", "sublabel": "main.cpp:37", "tag": "실제 현재 경로", "width": 182 },
+    { "id": "early_exit", "lane": "defect", "col": 2, "type": "security", "label": "즉시 return -1", "sublabel": "창과 렌더링에 도달하지 않음", "width": 182 }
+  ],
+  "edges": [
+    { "id": "begin-init", "from": "start", "to": "initialize", "label": "의도된 흐름", "variant": "emphasis", "role": "main" },
+    { "id": "init-setup", "from": "initialize", "to": "setup", "label": "성공", "variant": "default", "role": "main" },
+    { "id": "setup-input", "from": "setup", "to": "read_input", "label": "메인 루프 진입", "variant": "emphasis", "role": "main" },
+    { "id": "input-create", "from": "read_input", "to": "create", "label": "숫자 키 1~4", "variant": "default", "role": "branch" },
+    { "id": "input-edit", "from": "read_input", "to": "edit", "label": "클릭·편집 키", "variant": "default", "role": "branch" },
+    { "id": "create-state", "from": "create", "to": "update_state", "label": "위치·크기·색 저장", "variant": "default" },
+    { "id": "edit-state", "from": "edit", "to": "update_state", "label": "선택 사각형 갱신", "variant": "default" },
+    { "id": "input-state", "from": "read_input", "to": "update_state", "label": "입력 결과", "variant": "emphasis", "role": "main" },
+    { "id": "state-draw", "from": "update_state", "to": "draw_scene", "label": "rectangles[4][5] 읽기", "variant": "emphasis", "role": "main" },
+    { "id": "draw-present", "from": "draw_scene", "to": "present", "label": "색상 버퍼", "variant": "emphasis", "role": "main" },
+    { "id": "present-loop", "from": "present", "to": "read_input", "label": "Q 또는 창 닫기 전까지 반복", "variant": "dashed", "role": "return" },
+    { "id": "actual-bug", "from": "start", "to": "comment_bug", "label": "현재 컴파일된 경로", "variant": "security", "role": "error" },
+    { "id": "bug-exit", "from": "comment_bug", "to": "early_exit", "label": "무조건 실패 블록 실행", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "프로그램의 목적",
+      "items": [
+        "화면을 네 영역으로 나누고 각 영역에 무작위 색·크기의 사각형 생성",
+        "마우스로 사각형을 선택해 크기와 색을 바꾸고 전체 상태를 초기화"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "조작법",
+      "items": [
+        "1~4: 각 영역에 사각형 추가 · 클릭: 사각형 선택",
+        "+/−: 크기 변경 · C: 색 변경 · R: 초기화 · Q: 종료"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "현재 코드에서 먼저 고칠 부분",
+      "items": [
+        "main.cpp 37행의 if (!glfwInit())가 // 주석 뒤에 붙어 있어 실행되지 않음",
+        "그 결과 38~41행 블록이 무조건 실행되어 프로그램이 즉시 종료됨"
+      ]
+    }
+  ]
+}
