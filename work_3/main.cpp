@@ -5,21 +5,16 @@
 #include <ctime>
 #include <vector>
 
-using namespace std;
+#define WIDTH 1920
+#define HEIGHT 1080
 
+using namespace std;
 
 const int MAX_RECT = 10;
 
-struct Rect
-{
-	float x1;
-	float y1;
-	float x2;
-	float y2;
-
-	float r;
-	float g;
-	float b;
+struct Rect {
+	float x1, y1, x2, y2, r, g, b;
+	bool selected = false;
 };
 
 vector<Rect> rects;
@@ -28,6 +23,7 @@ void InputProcess(GLFWwindow* window);
 void DrawScene();
 void DrawRect(const Rect& rect);
 void CreateRandomRect();
+void SelectRect(GLFWwindow* window);
 
 int main() {
 	
@@ -40,7 +36,7 @@ int main() {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(1920, 1080, "OpenGL Window", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "OpenGL Window", nullptr, nullptr);
 	if (!window) {
 		cerr << "failed create window" << endl;
 		glfwTerminate();
@@ -53,14 +49,13 @@ int main() {
 		return -1;
 	}
 
-	glViewport(0, 0, 1920, 1080);
+	glViewport(0, 0, WIDTH, HEIGHT);
 
 	srand(static_cast<unsigned int>(time(nullptr)));
 
 	while (!glfwWindowShouldClose(window)) {
 		
 		InputProcess(window);
-
 		DrawScene();
 
 		glfwSwapBuffers(window);
@@ -75,9 +70,11 @@ int main() {
 void InputProcess(GLFWwindow* window)
 {
 	static bool aPressed = false;
+	static bool leftPressed = false;
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
 		if (!aPressed) {
 			CreateRandomRect();
@@ -87,21 +84,44 @@ void InputProcess(GLFWwindow* window)
 	else {
 		aPressed = false;
 	}
-		
-}
-void DrawRect(const Rect& rect) {
-	glColor3f(rect.r, rect.g, rect.b);
-	glRectf(rect.x1, rect.y1, rect.x2, rect.y2);
+
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+		if (!leftPressed) {
+			SelectRect(window);
+			leftPressed = true;
+		}
+	}
+	else {
+		leftPressed = false;
+	}
 }
 
-void DrawScene()
-{
-	glClearColor(1.0f, 1.0f, 1.0f, 1.0f); // RGBA (파랑)
+void DrawScene() {
+	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
-
 	for (const Rect& rect : rects) {
 		DrawRect(rect);
 	}
+}
+
+void DrawRect(const Rect& rect) {
+	glColor3f(rect.r, rect.g, rect.b);
+	glRectf(rect.x1, rect.y1, rect.x2, rect.y2);
+	if (rect.selected)
+	{
+		glColor3f(0.0f, 0.0f, 0.0f);
+		glLineWidth(4.0f);
+
+		glBegin(GL_LINE_LOOP);
+
+		glVertex2f(rect.x1, rect.y1);
+		glVertex2f(rect.x2, rect.y1);
+		glVertex2f(rect.x2, rect.y2);
+		glVertex2f(rect.x1, rect.y2);
+
+		glEnd();
+	}
+
 }
 
 void CreateRandomRect() {
@@ -127,4 +147,25 @@ void CreateRandomRect() {
 	rect.b = static_cast<float>(rand()) / RAND_MAX;
 
 	rects.push_back(rect);
+}
+
+void SelectRect(GLFWwindow* window)
+{
+	double x, y;
+	glfwGetCursorPos(window, &x, &y);
+
+	float real_x = x / WIDTH * 2.0 - 1.0;
+	float real_y = 1.0 - y / HEIGHT * 2.0;
+
+	for (Rect& rect : rects)
+		rect.selected = false;
+
+	for (int i = static_cast<int>(rects.size()) - 1; i >= 0; --i) {
+		if (real_x >= rects[i].x1 && real_x <= rects[i].x2 &&
+			real_y >= rects[i].y1 && real_y <= rects[i].y2) {
+
+			rects[i].selected = true;
+			break;
+		}
+	}
 }
