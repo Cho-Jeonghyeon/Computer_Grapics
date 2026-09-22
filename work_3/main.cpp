@@ -16,6 +16,9 @@ struct Rect {
 	float x1, y1, x2, y2, r, g, b;
 	bool selected = false;
 };
+int draggingIndex = -1;
+float dragOffsetX = 0.0f;
+float dragOffsetY = 0.0f;
 
 vector<Rect> rects;
 
@@ -24,6 +27,8 @@ void DrawScene();
 void DrawRect(const Rect& rect);
 void CreateRandomRect();
 void SelectRect(GLFWwindow* window);
+void DragRect(GLFWwindow* window);
+void StopDrag();
 
 int main() {
 	
@@ -90,9 +95,13 @@ void InputProcess(GLFWwindow* window)
 			SelectRect(window);
 			leftPressed = true;
 		}
+		DragRect(window);
 	}
 	else {
-		leftPressed = false;
+		if (leftPressed) {
+			StopDrag();
+			leftPressed = false;
+		}
 	}
 }
 
@@ -157,6 +166,8 @@ void SelectRect(GLFWwindow* window)
 	float real_x = x / WIDTH * 2.0 - 1.0;
 	float real_y = 1.0 - y / HEIGHT * 2.0;
 
+	draggingIndex = -1;
+
 	for (Rect& rect : rects)
 		rect.selected = false;
 
@@ -165,7 +176,68 @@ void SelectRect(GLFWwindow* window)
 			real_y >= rects[i].y1 && real_y <= rects[i].y2) {
 
 			rects[i].selected = true;
+			draggingIndex = i;
+
+			dragOffsetX = real_x - rects[i].x1;
+			dragOffsetY = real_y - rects[i].y1;
+
 			break;
 		}
 	}
+}
+
+void DragRect(GLFWwindow* window)
+{
+	if (draggingIndex == -1)
+		return;
+
+	double x, y;
+	glfwGetCursorPos(window, &x, &y);
+
+	float real_x = static_cast<float>(x) / WIDTH * 2.0f - 1.0f;
+	float real_y = 1.0f - static_cast<float>(y) / HEIGHT * 2.0f;
+
+	Rect& rect = rects[draggingIndex];
+
+	float width = rect.x2 - rect.x1;
+	float height = rect.y2 - rect.y1;
+
+	// 1. 마우스 위치에 따라 일단 이동
+	rect.x1 = real_x - dragOffsetX;
+	rect.y1 = real_y - dragOffsetY;
+
+	rect.x2 = rect.x1 + width;
+	rect.y2 = rect.y1 + height;
+
+
+	// 2. 이동한 사각형이 화면 밖으로 나갔는지 검사
+
+	// 왼쪽
+	if (rect.x1 < -1.0f) {
+		rect.x1 = -1.0f;
+		rect.x2 = rect.x1 + width;
+	}
+
+	// 오른쪽
+	if (rect.x2 > 1.0f) {
+		rect.x2 = 1.0f;
+		rect.x1 = rect.x2 - width;
+	}
+
+	// 아래
+	if (rect.y1 < -1.0f) {
+		rect.y1 = -1.0f;
+		rect.y2 = rect.y1 + height;
+	}
+
+	// 위
+	if (rect.y2 > 1.0f) {
+		rect.y2 = 1.0f;
+		rect.y1 = rect.y2 - height;
+	}
+}
+
+void StopDrag()
+{
+	draggingIndex = -1;
 }
