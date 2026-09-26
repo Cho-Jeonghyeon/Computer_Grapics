@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <algorithm>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -29,6 +30,7 @@ void CreateRandomRect();
 void SelectRect(GLFWwindow* window);
 void DragRect(GLFWwindow* window);
 void StopDrag();
+void MergeRects(float mouseX, float mouseY);
 
 int main() {
 	
@@ -235,9 +237,71 @@ void DragRect(GLFWwindow* window)
 		rect.y2 = 1.0f;
 		rect.y1 = rect.y2 - height;
 	}
+	//MergeRects(real_x, real_y);
+
 }
 
 void StopDrag()
 {
+	if (draggingIndex != -1) {
+		float mouseX = rects[draggingIndex].x1 + dragOffsetX;
+		float mouseY = rects[draggingIndex].y1 + dragOffsetY;
+
+		MergeRects(mouseX, mouseY);
+	}
 	draggingIndex = -1;
+}
+
+void MergeRects(float mouseX, float mouseY) {
+	if (draggingIndex == -1)
+		return;
+
+	int i = 0;
+
+	while (i < static_cast<int>(rects.size())) {
+		// 자기 자신은 검사하지 않음
+		if (i == draggingIndex) {
+			++i;
+			continue;
+		}
+
+		Rect& a = rects[draggingIndex];
+		const Rect& b = rects[i];
+
+		// x축과 y축 모두 겹치는지 검사
+		bool overlap =
+			a.x1 < b.x2 && a.x2 > b.x1 &&
+			a.y1 < b.y2 && a.y2 > b.y1;
+
+		if (!overlap) {
+			++i;
+			continue;
+		}
+
+		// 두 사각형을 포함하는 큰 사각형으로 변경
+		a.x1 = (min)(a.x1, b.x1);
+		a.y1 = (min)(a.y1, b.y1);
+		a.x2 = (max)(a.x2, b.x2);
+		a.y2 = (max)(a.y2, b.y2);
+
+		// 색상을 랜덤하게 변경
+		a.r = static_cast<float>(rand()) / RAND_MAX;
+		a.g = static_cast<float>(rand()) / RAND_MAX;
+		a.b = static_cast<float>(rand()) / RAND_MAX;
+
+		// 합쳐진 상대 사각형 제거
+		rects.erase(rects.begin() + i);
+
+		// 삭제로 밀린 인덱스 보정
+		if (i < draggingIndex)
+			--draggingIndex;
+
+		// 병합 후에도 자연스럽게 드래그하도록 간격 보정
+		dragOffsetX = mouseX - rects[draggingIndex].x1;
+		dragOffsetY = mouseY - rects[draggingIndex].y1;
+
+		break;
+		// 커진 사각형을 기준으로 다시 검사
+		//i = 0;
+	}
 }
