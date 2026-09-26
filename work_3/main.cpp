@@ -11,7 +11,8 @@
 
 using namespace std;
 
-const int MAX_RECT = 10;
+const int MAX_CREATE_RECT = 10; // A키로 생성할 수 있는 현재 개수 제한
+const int MAX_RECT = 20;        // 분리를 포함한 전체 개수 제한
 
 struct Rect {
 	float x1, y1, x2, y2, r, g, b;
@@ -31,6 +32,7 @@ void SelectRect(GLFWwindow* window);
 void DragRect(GLFWwindow* window);
 void StopDrag();
 void MergeRects(float mouseX, float mouseY);
+void SplitRect(GLFWwindow* window);
 
 int main() {
 	
@@ -78,6 +80,7 @@ void InputProcess(GLFWwindow* window)
 {
 	static bool aPressed = false;
 	static bool leftPressed = false;
+	static bool rightPressed = false;
 
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
@@ -104,6 +107,16 @@ void InputProcess(GLFWwindow* window)
 			StopDrag();
 			leftPressed = false;
 		}
+	}
+
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+		if (!rightPressed) {
+			SplitRect(window);
+			rightPressed = true;
+		}
+	}
+	else {
+		rightPressed = false;
 	}
 }
 
@@ -136,7 +149,7 @@ void DrawRect(const Rect& rect) {
 }
 
 void CreateRandomRect() {
-	if (rects.size() >= MAX_RECT)
+	if (rects.size() >= MAX_CREATE_RECT)
 		return;
 	Rect rect;
 	float w_scale = 0.4f + static_cast<float>(rand()) / RAND_MAX;
@@ -250,6 +263,102 @@ void StopDrag()
 		MergeRects(mouseX, mouseY);
 	}
 	draggingIndex = -1;
+}
+
+void SplitRect(GLFWwindow* window)
+{
+	// 하나가 둘이 되므로 전체 개수는 하나 증가
+	if (rects.size() >= MAX_RECT)
+		return;
+
+	double x, y;
+	glfwGetCursorPos(window, &x, &y);
+	float real_x = static_cast<float>(x) / WIDTH * 2.0f - 1.0f;
+	float real_y = 1.0f - static_cast<float>(y) / HEIGHT * 2.0f;
+
+	// 화면에서 가장 위에 보이는 사각형부터 검사
+	for (int i = static_cast<int>(rects.size()) - 1; i >= 0; --i) {
+		if (real_x < rects[i].x1 || real_x > rects[i].x2 ||
+			real_y < rects[i].y1 || real_y > rects[i].y2)
+			continue;
+
+		// 삽입 시 vector의 저장 공간이 바뀔 수 있으므로 복사해서 사용
+		Rect first = rects[i];
+		Rect second = rects[i];
+		float ratio = 0.2f + static_cast<float>(rand()) / RAND_MAX * 0.6f;
+
+		bool splitLeftRight = rand() % 2 == 0;
+		if (splitLeftRight) {
+			float width = first.x2 - first.x1;
+			// 약 8픽셀 간격. 작은 사각형은 너비의 10%로 제한
+			float gap = (min)(16.0f / WIDTH, width * 0.1f);
+			float splitX = first.x1 + (width - gap) * ratio;
+			if (splitX <= first.x1 || splitX + gap >= first.x2)
+				return;
+			first.x2 = splitX;
+			second.x1 = splitX + gap;
+		}
+		else {
+			float height = first.y2 - first.y1;
+			float gap = (min)(16.0f / HEIGHT, height * 0.1f);
+			float splitY = first.y1 + (height - gap) * ratio;
+			if (splitY <= first.y1 || splitY + gap >= first.y2)
+				return;
+			first.y2 = splitY;
+			second.y1 = splitY + gap;
+		}
+
+		// 각 조각의 가로/세로를 분리 직후 크기의 50~150%로 변경
+		// 맞닿는 쪽 경계를 유지해서 크기가 커져도 두 조각은 겹치지 않음
+		for (int part = 0; part < 2; ++part) {
+			Rect& piece = (part == 0) ? first : second;
+			float width = (piece.x2 - piece.x1) *
+				(0.5f + static_cast<float>(rand()) / RAND_MAX);
+			float height = (piece.y2 - piece.y1) *
+				(0.5f + static_cast<float>(rand()) / RAND_MAX);
+
+			if (splitLeftRight) {
+				if (part == 0)
+					piece.x1 = (max)(-1.0f, piece.x2 - width);
+				else
+					piece.x2 = (min)(1.0f, piece.x1 + width);
+				height = (min)(height, 2.0f);
+				float centerY = (piece.y1 + piece.y2) * 0.5f;
+				piece.y1 = (max)(-1.0f, (min)(centerY - height * 0.5f, 1.0f - height));
+				piece.y2 = piece.y1 + height;
+			}
+			else {
+				if (part == 0)
+					piece.y1 = (max)(-1.0f, piece.y2 - height);
+				else
+					piece.y2 = (min)(1.0f, piece.y1 + height);
+				width = (min)(width, 2.0f);
+				float centerX = (piece.x1 + piece.x2) * 0.5f;
+				piece.x1 = (max)(-1.0f, (min)(centerX - width * 0.5f, 1.0f - width));
+				piece.x2 = piece.x1 + width;
+			}
+		}
+
+		first.r = static_cast<float>(rand()) / RAND_MAX;
+		first.g = static_cast<float>(rand()) / RAND_MAX;
+		first.b = static_cast<float>(rand()) / RAND_MAX;
+		second.r = static_cast<float>(rand()) / RAND_MAX;
+		second.g = static_cast<float>(rand()) / RAND_MAX;
+		second.b = static_cast<float>(rand()) / RAND_MAX;
+		first.selected = false;
+		second.selected = false;
+
+		rects[i] = first;
+		// 원래 레이어 위치에 두 조각을 나란히 저장
+		rects.insert(rects.begin() + i + 1, second);
+
+		if (draggingIndex == i)
+			draggingIndex = -1;
+		else if (draggingIndex > i)
+			++draggingIndex;
+
+		break;
+	}
 }
 
 void MergeRects(float mouseX, float mouseY) {
