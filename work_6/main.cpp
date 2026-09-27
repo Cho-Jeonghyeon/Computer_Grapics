@@ -4,6 +4,8 @@
 #include <vector>
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -18,6 +20,7 @@ struct Rect
     float x, y;
     float halfSize;
     float r, g, b;
+    float dx, dy;
     bool moving;
 };
 
@@ -28,6 +31,9 @@ void DrawScene();
 void ResetScene();
 void CreateRandomRect();
 void SplitRect(GLFWwindow* window);
+void AddPiece(const Rect& source, float x, float y,
+    float halfSize, float dx, float dy);
+void UpdateRects(float deltaTime);
 bool KeyPressed(GLFWwindow* window, int key);
 float RandomFloat();
 
@@ -71,9 +77,17 @@ int main()
     srand(static_cast<unsigned int>(time(nullptr)));
     ResetScene();
 
+    double previousTime = glfwGetTime();
+
     while (!glfwWindowShouldClose(window)) {
+        double currentTime = glfwGetTime();
+        float deltaTime = static_cast<float>(currentTime - previousTime);
+        previousTime = currentTime;
+        deltaTime = (min)(deltaTime, 0.05f);
+
         glfwPollEvents();
         InputProcess(window);
+        UpdateRects(deltaTime);
         DrawScene();
         glfwSwapBuffers(window);
     }
@@ -131,6 +145,8 @@ void CreateRandomRect()
     rect.r = RandomFloat();
     rect.g = RandomFloat();
     rect.b = RandomFloat();
+    rect.dx = 0.0f;
+    rect.dy = 0.0f;
     rect.moving = false;
     rects.push_back(rect);
 }
@@ -158,21 +174,107 @@ void SplitRect(GLFWwindow* window)
 
         rects.erase(rects.begin() + i);
 
-        float pieceSize = source.halfSize * 0.5f;
-        const float offsets[4][2] = {
-            {-1.0f, -1.0f}, {1.0f, -1.0f},
-            {-1.0f,  1.0f}, {1.0f,  1.0f}
-        };
+        int moveType = 1 + rand() % 4;
 
-        for (int part = 0; part < 4; ++part) {
-            Rect piece = source;
-            piece.x = source.x + offsets[part][0] * pieceSize;
-            piece.y = source.y + offsets[part][1] * pieceSize;
-            piece.halfSize = pieceSize;
-            piece.moving = true;
-            rects.push_back(piece);
+        if (moveType == 4) {
+            const float directions[8][2] = {
+                {-1.0f,  0.0f}, {1.0f,  0.0f},
+                { 0.0f, -1.0f}, {0.0f,  1.0f},
+                {-1.0f, -1.0f}, {1.0f, -1.0f},
+                {-1.0f,  1.0f}, {1.0f,  1.0f}
+            };
+            float pieceSize = source.halfSize * 0.35f;
+
+            for (int part = 0; part < 8; ++part) {
+                float dx = directions[part][0];
+                float dy = directions[part][1];
+                float length = sqrt(dx * dx + dy * dy);
+                dx /= length;
+                dy /= length;
+
+                AddPiece(source,
+                    source.x + dx * pieceSize,
+                    source.y + dy * pieceSize,
+                    pieceSize, dx, dy);
+            }
+        }
+        else {
+            float pieceSize = source.halfSize * 0.5f;
+            const float startOffset[4][2] = {
+                {-1.0f, -1.0f}, {1.0f, -1.0f},
+                {-1.0f,  1.0f}, {1.0f,  1.0f}
+            };
+            float directions[4][2] = {};
+
+            if (moveType == 1) {
+                directions[0][0] = -1.0f;
+                directions[1][0] = 1.0f;
+                directions[2][1] = -1.0f;
+                directions[3][1] = 1.0f;
+            }
+            else if (moveType == 2) {
+                for (int part = 0; part < 4; ++part) {
+                    directions[part][0] = startOffset[part][0];
+                    directions[part][1] = startOffset[part][1];
+                }
+            }
+            else {
+                const float allDirections[8][2] = {
+                    {-1.0f,  0.0f}, {1.0f,  0.0f},
+                    { 0.0f, -1.0f}, {0.0f,  1.0f},
+                    {-1.0f, -1.0f}, {1.0f, -1.0f},
+                    {-1.0f,  1.0f}, {1.0f,  1.0f}
+                };
+                int direction = rand() % 8;
+                for (int part = 0; part < 4; ++part) {
+                    directions[part][0] = allDirections[direction][0];
+                    directions[part][1] = allDirections[direction][1];
+                }
+            }
+
+            for (int part = 0; part < 4; ++part) {
+                float dx = directions[part][0];
+                float dy = directions[part][1];
+                float length = sqrt(dx * dx + dy * dy);
+                dx /= length;
+                dy /= length;
+
+                AddPiece(source,
+                    source.x + startOffset[part][0] * pieceSize,
+                    source.y + startOffset[part][1] * pieceSize,
+                    pieceSize, dx, dy);
+            }
         }
         break;
+    }
+}
+
+void AddPiece(const Rect& source, float x, float y,
+    float halfSize, float dx, float dy)
+{
+    Rect piece;
+    piece.x = x;
+    piece.y = y;
+    piece.halfSize = halfSize;
+    piece.r = source.r;
+    piece.g = source.g;
+    piece.b = source.b;
+    piece.dx = dx;
+    piece.dy = dy;
+    piece.moving = true;
+    rects.push_back(piece);
+}
+
+void UpdateRects(float deltaTime)
+{
+    const float moveSpeed = 0.45f;
+
+    for (Rect& rect : rects) {
+        if (!rect.moving)
+            continue;
+
+        rect.x += rect.dx * moveSpeed * deltaTime;
+        rect.y += rect.dy * moveSpeed * deltaTime;
     }
 }
 
