@@ -18,6 +18,7 @@ struct Rect
     float x, y;
     float halfSize;
     float r, g, b;
+    bool moving;
 };
 
 vector<Rect> rects;
@@ -26,6 +27,7 @@ void InputProcess(GLFWwindow* window);
 void DrawScene();
 void ResetScene();
 void CreateRandomRect();
+void SplitRect(GLFWwindow* window);
 bool KeyPressed(GLFWwindow* window, int key);
 float RandomFloat();
 
@@ -87,6 +89,12 @@ void InputProcess(GLFWwindow* window)
         glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    static bool oldLeft = false;
+    bool nowLeft = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+    if (nowLeft && !oldLeft)
+        SplitRect(window);
+    oldLeft = nowLeft;
+
     if (KeyPressed(window, GLFW_KEY_R))
         ResetScene();
 }
@@ -123,7 +131,49 @@ void CreateRandomRect()
     rect.r = RandomFloat();
     rect.g = RandomFloat();
     rect.b = RandomFloat();
+    rect.moving = false;
     rects.push_back(rect);
+}
+
+void SplitRect(GLFWwindow* window)
+{
+    double mouseX, mouseY;
+    int width, height;
+    glfwGetCursorPos(window, &mouseX, &mouseY);
+    glfwGetWindowSize(window, &width, &height);
+    if (width <= 0 || height <= 0)
+        return;
+
+    float x = static_cast<float>(mouseX) / width * 2.0f - 1.0f;
+    float y = 1.0f - static_cast<float>(mouseY) / height * 2.0f;
+
+    for (int i = static_cast<int>(rects.size()) - 1; i >= 0; --i) {
+        Rect source = rects[i];
+        if (source.moving)
+            continue;
+
+        if (x < source.x - source.halfSize || x > source.x + source.halfSize ||
+            y < source.y - source.halfSize || y > source.y + source.halfSize)
+            continue;
+
+        rects.erase(rects.begin() + i);
+
+        float pieceSize = source.halfSize * 0.5f;
+        const float offsets[4][2] = {
+            {-1.0f, -1.0f}, {1.0f, -1.0f},
+            {-1.0f,  1.0f}, {1.0f,  1.0f}
+        };
+
+        for (int part = 0; part < 4; ++part) {
+            Rect piece = source;
+            piece.x = source.x + offsets[part][0] * pieceSize;
+            piece.y = source.y + offsets[part][1] * pieceSize;
+            piece.halfSize = pieceSize;
+            piece.moving = true;
+            rects.push_back(piece);
+        }
+        break;
+    }
 }
 
 bool KeyPressed(GLFWwindow* window, int key)
