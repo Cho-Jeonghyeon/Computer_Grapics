@@ -268,6 +268,7 @@ void AddPiece(const Rect& source, float x, float y,
 void UpdateRects(float deltaTime)
 {
     const float moveSpeed = 0.45f;
+    const float shrinkSpeed = 0.025f;
 
     for (Rect& rect : rects) {
         if (!rect.moving)
@@ -275,7 +276,13 @@ void UpdateRects(float deltaTime)
 
         rect.x += rect.dx * moveSpeed * deltaTime;
         rect.y += rect.dy * moveSpeed * deltaTime;
+        rect.halfSize -= shrinkSpeed * deltaTime;
     }
+
+    rects.erase(remove_if(rects.begin(), rects.end(),
+        [](const Rect& rect) {
+            return rect.moving && rect.halfSize <= 0.005f;
+        }), rects.end());
 }
 
 bool KeyPressed(GLFWwindow* window, int key)
