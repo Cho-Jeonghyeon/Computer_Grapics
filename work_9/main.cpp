@@ -26,6 +26,7 @@ struct Triangle {
     float speed, dx, dy;
     float headingX, headingY;
     float turnRemaining;
+    float radius, angle, spin, radialDirection;
 };
 Triangle triangles[4];
 const float MIN_SIZE = 0.05f;
@@ -62,6 +63,25 @@ void SetHeading(Triangle& t, float x, float y)
         t.headingX = x / length;
         t.headingY = y / length;
     }
+}
+
+void SetSpiralPosition(Triangle& t)
+{
+
+    float scaleX = min(1.0f, 1.0f / windowAspect);
+    float scaleY = min(1.0f, windowAspect);
+    t.x = t.radius * cos(t.angle) * scaleX;
+    t.y = t.radius * sin(t.angle) * scaleY;
+}
+
+void StartSpiral(Triangle& t)
+{
+
+    float x = t.x / min(1.0f, 1.0f / windowAspect);
+    float y = t.y / min(1.0f, windowAspect);
+    t.angle = atan2(y, x);
+    t.radius = clamp(sqrt(x * x + y * y), 0.06f, CenterLimit(t));
+    SetSpiralPosition(t);
 }
 
 string filetobuf(const char* name)
@@ -194,7 +214,10 @@ void CreateTriangle(int index, float x, float y)
     t.headingX = 0;
     t.headingY = 1;
     t.turnRemaining = 0;
+    t.spin = index % 2 == 0 ? 1.0f : -1.0f;
+    t.radialDirection = index % 2 == 0 ? 1.0f : -1.0f;
     KeepInside(t);
+    if (movementMode == 4) StartSpiral(t);
 }
 
 void ResetScene()
@@ -221,6 +244,7 @@ void ResizeTriangle(int index)
         t.growing = true;
     }
     KeepInside(t);
+    if (movementMode == 4) StartSpiral(t);
 }
 
 void BounceAxis(float& position, float& direction, float limit)
@@ -288,12 +312,35 @@ void MoveVerticalZigzag(Triangle& t, float distance)
     SetHeading(t, t.dx * 0.3f, t.dy * 0.95f);
 }
 
+void MoveSpiral(Triangle& t, float distance)
+{
+
+    float oldX = t.x, oldY = t.y;
+    t.angle += t.spin * distance * 4.0f;
+    t.radius += t.radialDirection * distance * 0.25f;
+    float limit = CenterLimit(t);
+    if (t.radius >= limit) {
+        t.radius = 2.0f * limit - t.radius;
+
+        t.radialDirection = -1;
+        t.spin = -t.spin;
+    } else if (t.radius <= 0.06f) {
+        t.radius = 0.12f - t.radius;
+
+        t.radialDirection = 1;
+    }
+    t.angle = fmod(t.angle, 6.2831853f);
+    SetSpiralPosition(t);
+    SetHeading(t, t.x - oldX, t.y - oldY);
+}
+
 void SetMovementMode(int mode)
 {
 
     movementMode = mode;
     for (Triangle& t : triangles) {
         t.turnRemaining = 0;
+        if (mode == 4) StartSpiral(t);
     }
     cout << "Movement mode: " << mode << '\n';
 }
@@ -306,6 +353,7 @@ void UpdateTriangles(float deltaTime)
         if (movementMode == 1) MoveBounce(t, distance);
         else if (movementMode == 2) MoveHorizontalZigzag(t, distance);
         else if (movementMode == 3) MoveVerticalZigzag(t, distance);
+        else if (movementMode == 4) MoveSpiral(t, distance);
     }
 }
 
@@ -340,7 +388,7 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int)
     if (key == GLFW_KEY_B) filled = false;
     if (key == GLFW_KEY_C) ResetScene();
     if (key == GLFW_KEY_Q) glfwSetWindowShouldClose(window, true);
-    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_3)
+    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_4)
         SetMovementMode(key - GLFW_KEY_1 + 1);
 }
 
@@ -435,6 +483,8 @@ int main()
         glViewport(0, 0, width, height);
         if (width > 0 && height > 0) {
             windowAspect = float(width) / height;
+            if (movementMode == 4)
+                for (Triangle& t : triangles) StartSpiral(t);
         }
     });
     int width, height;
@@ -444,7 +494,7 @@ int main()
     if (width > 0 && height > 0) windowAspect = float(width) / height;
     cout << "Left click: replace triangle in quadrant | Right click: resize\n"
         << "A: filled | B: outline | C: reset all | Q / Esc: exit\n"
-        << "1: bounce | 2: horizontal zigzag | 3: vertical zigzag\n"
+        << "1: bounce | 2: horizontal zigzag | 3: vertical zigzag | 4: spiral\n"
         << "Quadrant slots: upper-right 1, upper-left 2, lower-left 3, lower-right 4\n";
     double previousTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
