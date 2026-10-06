@@ -8,12 +8,20 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <cstdlib>
+#include <ctime>
 
 #define WIDTH 1920
 #define HEIGHT 1080
 
 using namespace std;
 
+struct Triangle {
+    float x, y;
+    float size;
+    float r, g, b;
+};
+Triangle triangles[4];
 GLuint shaderProgramID = 0;
 GLuint vao = 0, vbo[2] = {};
 
@@ -114,6 +122,35 @@ void InitBuffer()
 
 }
 
+float RandomFloat(float low, float high)
+{
+
+    return low + (high - low) * (float(rand()) / RAND_MAX);
+}
+
+void CreateTriangle(int index, float x, float y)
+{
+    Triangle& t = triangles[index];
+
+    t.x = x;
+    t.y = y;
+    t.size = RandomFloat(0.10f, 0.22f);
+
+    t.r = RandomFloat(0.1f, 0.85f);
+    t.g = RandomFloat(0.1f, 0.85f);
+    t.b = RandomFloat(0.1f, 0.85f);
+
+}
+
+void ResetScene()
+{
+
+    CreateTriangle(0,  0.5f,  0.5f);
+    CreateTriangle(1, -0.5f,  0.5f);
+    CreateTriangle(2, -0.5f, -0.5f);
+    CreateTriangle(3,  0.5f, -0.5f);
+}
+
 void UploadAndDraw(const float* positions, int count, GLenum mode, float r, float g, float b)
 {
 
@@ -140,6 +177,19 @@ void DrawScene()
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shaderProgramID);
     glBindVertexArray(vao);
+    for (int i = 0; i < 4; ++i) {
+        const Triangle& t = triangles[i];
+        float w = t.size * 0.6f;
+        float h = t.size;
+
+        float positions[] = {
+            t.x - w, t.y - h, 0,
+            t.x + w, t.y - h, 0,
+            t.x,     t.y + h, 0
+        };
+
+        UploadAndDraw(positions, 3, GL_TRIANGLES, t.r, t.g, t.b);
+    }
 
     float axes[] = { -1,0,0, 1,0,0, 0,-1,0, 0,1,0 };
 
@@ -155,6 +205,7 @@ void InputProcess(GLFWwindow* window)
 
 int main()
 {
+    srand(unsigned(time(nullptr)));
 
     if (!glfwInit()) { cerr << "Failed to initialize GLFW\n"; return -1; }
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -179,6 +230,7 @@ int main()
         glfwDestroyWindow(window); glfwTerminate(); return -1;
     }
     InitBuffer();
+    ResetScene();
     glfwSwapInterval(1);
 
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
@@ -189,7 +241,7 @@ int main()
 
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
-    cout << "OpenGL shader and axes\n"
+    cout << "Quadrant triangles\n"
         << "Esc: exit\n";
     while (!glfwWindowShouldClose(window)) {
 
