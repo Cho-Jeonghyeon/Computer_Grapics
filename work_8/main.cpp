@@ -128,6 +128,13 @@ float RandomFloat(float low, float high)
     return low + (high - low) * (float(rand()) / RAND_MAX);
 }
 
+int GetQuadrant(float x, float y)
+{
+
+    if (y >= 0) return x >= 0 ? 0 : 1;
+    return x < 0 ? 2 : 3;
+}
+
 void CreateTriangle(int index, float x, float y)
 {
     Triangle& t = triangles[index];
@@ -149,6 +156,26 @@ void ResetScene()
     CreateTriangle(1, -0.5f,  0.5f);
     CreateTriangle(2, -0.5f, -0.5f);
     CreateTriangle(3,  0.5f, -0.5f);
+}
+
+void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
+{
+
+    if (action != GLFW_PRESS) return;
+    if (button != GLFW_MOUSE_BUTTON_LEFT) return;
+    int width, height;
+    double mx, my;
+
+    glfwGetWindowSize(window, &width, &height);
+    if (width <= 0 || height <= 0) return;
+    glfwGetCursorPos(window, &mx, &my);
+    if (mx < 0 || mx >= width || my < 0 || my >= height) return;
+
+    float x = float(2.0 * mx / width - 1.0);
+    float y = float(1.0 - 2.0 * my / height);
+    int index = GetQuadrant(x, y);
+
+    CreateTriangle(index, x, y);
 }
 
 void UploadAndDraw(const float* positions, int count, GLenum mode, float r, float g, float b)
@@ -233,6 +260,7 @@ int main()
     ResetScene();
     glfwSwapInterval(1);
 
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 
         glViewport(0, 0, width, height);
@@ -241,7 +269,7 @@ int main()
 
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
-    cout << "Quadrant triangles\n"
+    cout << "Left click: replace triangle in quadrant\n"
         << "Esc: exit\n";
     while (!glfwWindowShouldClose(window)) {
 
