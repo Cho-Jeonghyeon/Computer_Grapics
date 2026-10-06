@@ -20,8 +20,11 @@ struct Triangle {
     float x, y;
     float size;
     float r, g, b;
+    bool growing;
 };
 Triangle triangles[4];
+const float MIN_SIZE = 0.05f;
+const float MAX_SIZE = 0.30f;
 GLuint shaderProgramID = 0;
 GLuint vao = 0, vbo[2] = {};
 
@@ -146,6 +149,7 @@ void CreateTriangle(int index, float x, float y)
     t.r = RandomFloat(0.1f, 0.85f);
     t.g = RandomFloat(0.1f, 0.85f);
     t.b = RandomFloat(0.1f, 0.85f);
+    t.growing = true;
 
 }
 
@@ -158,11 +162,27 @@ void ResetScene()
     CreateTriangle(3,  0.5f, -0.5f);
 }
 
+void ResizeTriangle(int index)
+{
+    Triangle& t = triangles[index];
+
+    t.size += t.growing ? 0.025f : -0.025f;
+    if (t.size >= MAX_SIZE) {
+        t.size = MAX_SIZE;
+        t.growing = false;
+    }
+    if (t.size <= MIN_SIZE) {
+        t.size = MIN_SIZE;
+        t.growing = true;
+    }
+
+}
+
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
 {
 
     if (action != GLFW_PRESS) return;
-    if (button != GLFW_MOUSE_BUTTON_LEFT) return;
+    if (button != GLFW_MOUSE_BUTTON_LEFT && button != GLFW_MOUSE_BUTTON_RIGHT) return;
     int width, height;
     double mx, my;
 
@@ -175,7 +195,10 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
     float y = float(1.0 - 2.0 * my / height);
     int index = GetQuadrant(x, y);
 
-    CreateTriangle(index, x, y);
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+        CreateTriangle(index, x, y);
+    else
+        ResizeTriangle(index);
 }
 
 void UploadAndDraw(const float* positions, int count, GLenum mode, float r, float g, float b)
@@ -269,7 +292,7 @@ int main()
 
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
-    cout << "Left click: replace triangle in quadrant\n"
+    cout << "Left click: replace triangle in quadrant | Right click: resize\n"
         << "Esc: exit\n";
     while (!glfwWindowShouldClose(window)) {
 
