@@ -150,6 +150,13 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ItemGroup>
+    <None Include="vertex.glsl" />
+    <None Include="fragment.glsl" />
+  </ItemGroup>
+  <Target Name="CopyShaders" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)vertex.glsl;$(ProjectDir)fragment.glsl" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
