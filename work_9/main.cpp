@@ -25,6 +25,7 @@ struct Triangle {
     bool growing;
     float speed, dx, dy;
     float headingX, headingY;
+    float turnRemaining;
 };
 Triangle triangles[4];
 const float MIN_SIZE = 0.05f;
@@ -192,6 +193,7 @@ void CreateTriangle(int index, float x, float y)
     t.dy = index < 2 ? 1.0f : -1.0f;
     t.headingX = 0;
     t.headingY = 1;
+    t.turnRemaining = 0;
     KeepInside(t);
 }
 
@@ -243,12 +245,46 @@ void MoveBounce(Triangle& t, float distance)
     SetHeading(t, t.dx * 0.8f, t.dy * 0.6f);
 }
 
+void MoveHorizontalZigzag(Triangle& t, float distance)
+{
+
+    float limit = CenterLimit(t);
+
+    while (distance > 0.000001f) {
+        if (t.turnRemaining > 0.000001f) {
+            float room = t.dy > 0 ? limit - t.y : t.y + limit;
+
+            float step = min(distance, min(t.turnRemaining, room));
+            t.y += t.dy * step;
+            t.turnRemaining -= step;
+            distance -= step;
+            SetHeading(t, 0, t.dy);
+            if (room <= step + 0.000001f) {
+
+                t.dy = -t.dy;
+                t.turnRemaining = 0;
+            }
+        } else {
+            float room = t.dx > 0 ? limit - t.x : t.x + limit;
+            float step = min(distance, room);
+            t.x += t.dx * step;
+            distance -= step;
+            SetHeading(t, t.dx, 0);
+            if (room <= step + 0.000001f) {
+                t.dx = -t.dx;
+                t.turnRemaining = 0.18f;
+            }
+        }
+    }
+}
+
 void SetMovementMode(int mode)
 {
 
     movementMode = mode;
     for (Triangle& t : triangles) {
-        }
+        t.turnRemaining = 0;
+    }
     cout << "Movement mode: " << mode << '\n';
 }
 
@@ -258,6 +294,7 @@ void UpdateTriangles(float deltaTime)
     for (Triangle& t : triangles) {
         float distance = t.speed * deltaTime;
         if (movementMode == 1) MoveBounce(t, distance);
+        else if (movementMode == 2) MoveHorizontalZigzag(t, distance);
     }
 }
 
@@ -292,7 +329,7 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int)
     if (key == GLFW_KEY_B) filled = false;
     if (key == GLFW_KEY_C) ResetScene();
     if (key == GLFW_KEY_Q) glfwSetWindowShouldClose(window, true);
-    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_1)
+    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_2)
         SetMovementMode(key - GLFW_KEY_1 + 1);
 }
 
@@ -396,7 +433,7 @@ int main()
     if (width > 0 && height > 0) windowAspect = float(width) / height;
     cout << "Left click: replace triangle in quadrant | Right click: resize\n"
         << "A: filled | B: outline | C: reset all | Q / Esc: exit\n"
-        << "1: bounce\n"
+        << "1: bounce | 2: horizontal zigzag\n"
         << "Quadrant slots: upper-right 1, upper-left 2, lower-left 3, lower-right 4\n";
     double previousTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
