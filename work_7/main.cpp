@@ -55,16 +55,20 @@ string filetobuf(const char* name)
     return buffer.str();
 }
 
-GLuint MakeShader(const char* name, GLenum type)
+GLuint MakeShader(const char* name, GLenum type)    //vertex, fragment.glsl 파일을 컴파일해서 shader 객체를 만들어주는 함수
+
 {
-    string sourceText = filetobuf(name);
+    string sourceText = filetobuf(name);    // 쉐이더 파일 읽기
     if (sourceText.empty()) return 0;
-    const char* source = sourceText.c_str();
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-    GLint result;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+    const char* source = sourceText.c_str();    //glShaderSource 이함수가 c++의 string 을 모르기 때문에 .c_str() 를 사용해서 const char*로 바꿔준다.
+    GLuint shader = glCreateShader(type);       //OpenGL아 Vertex Shader 하나 만들어줘, 또는 Fragment Shader 하나 만들어줘. //반환값은 ID다. ex) Shader ID = 7
+    //아직 이 시점에는 코드는 안 들어있다. 빈 쉐이더 객체만 만든 상태다.
+
+    glShaderSource(shader, 1, &source, nullptr);    //방금 만든 shader 객체에 이 GLSL 코드를 넣어라.
+    glCompileShader(shader);    //GPU용 프로그램을 컴파일한다. 문법 오류가 있으면 여기서 실패한다.
+
+    GLint result;   //컴파일 부분 검사
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &result);  //GL_COMPILE_STATUS == 이 쉐이더 컴파일 성공했냐?
     if (!result) {
         char log[2048];
         glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
@@ -77,20 +81,26 @@ GLuint MakeShader(const char* name, GLenum type)
 
 bool InitShader()
 {
-    GLuint vertexShader = MakeShader("vertex.glsl", GL_VERTEX_SHADER);
+    GLuint vertexShader = MakeShader("vertex.glsl", GL_VERTEX_SHADER);       //vertex, fragment.glsl 파일을 컴파일해서 shader 객체를 만들어주는 함수
     GLuint fragmentShader = MakeShader("fragment.glsl", GL_FRAGMENT_SHADER);
     if (!vertexShader || !fragmentShader) {
         if (vertexShader) glDeleteShader(vertexShader);
         if (fragmentShader) glDeleteShader(fragmentShader);
         return false;
     }
-    shaderProgramID = glCreateProgram();
+    shaderProgramID = glCreateProgram();        //둘을 하나의 그래픽 파이프라인으로 묶어야 하기 때문이다. //Shader들을 묶을 프로그램 객체 하나 만들어라.
     glAttachShader(shaderProgramID, vertexShader);
-    glAttachShader(shaderProgramID, fragmentShader);
-    glLinkProgram(shaderProgramID);
+    glAttachShader(shaderProgramID, fragmentShader);    //이제 프로그램 안에 두 쉐이더를 붙인다.
+
+    glLinkProgram(shaderProgramID);     //붙인 쉐이더들을 실제로 하나의 실행 가능한 프로그램으로 연결해라.
+                                        /*
+                                            Vertex Shader ─┐
+                                                            ├─ Link → Shader Program
+                                             Fragment Shader┘
+                                        */
     glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    GLint result;
+    glDeleteShader(fragmentShader);     // 린크가 끝나면 완성된 프로그램 안에서 사용할 수 있게 됐기 때문에 개별 Shader 객체는 더 이상 필요 없다.
+    GLint result;                       //링크 검사 
     glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
     if (!result) {
         char log[2048];
@@ -103,15 +113,27 @@ bool InitShader()
 //--- 강의 예제처럼 위치와 색상을 각각의 VBO에 저장한다.
 void InitBuffer()
 {
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-    glGenBuffers(2, vbo);
+    glGenVertexArrays(1, &vao); //VAO는 쉽게 말하면: 정점 데이터를 어떻게 읽어야 하는지 설정을 기억하는 객체 //VAO = VBO 사용 설명서
+    glBindVertexArray(vao); 
+    glGenBuffers(2, vbo);   //VBO용 Buffer 객체 두 개 만들어라.
     for (int i = 0; i < 2; ++i) {
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
-        glBufferData(GL_ARRAY_BUFFER, 6 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
-        glVertexAttribPointer(i, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-        glEnableVertexAttribArray(i);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);//“지금부터 이 객체를 작업 대상으로 삼겠다.”
+        glBufferData(GL_ARRAY_BUFFER, 6 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW); //이건 GPU 메모리에 공간을 만든다.   6정점×정점당 float 3개×float 크기  GL_DYNAMIC_DRAW=="이 데이터 자주 바뀔 거야.
+        glVertexAttribPointer(i, 3, GL_FLOAT, GL_FALSE, 0, nullptr);    //현재 VBO의 데이터를 Vertex Shader 입력 i번에서 이런 형식으로 읽어라.
+        glEnableVertexAttribArray(i);   //attribute를 실제로 활성화해야 한다.
     }
+        /*
+    VBO 0
+    [x y z]
+    [x y z]
+    [x y z]
+    ...
+
+    VBO 1
+    [r g b]
+    [r g b]
+    [r g b]
+    ...*/
 }
 
 float RandomFloat(float low, float high)
@@ -233,7 +255,7 @@ void UploadAndDraw(const float* positions, int count, GLenum mode, float r, floa
     for (int i = 0; i < count; ++i) {
         colors[i][0] = r; colors[i][1] = g; colors[i][2] = b;
     }
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]); // 실제 위치 데이터를 넣는다.
     glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(float), positions);
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(float), colors);
@@ -244,7 +266,7 @@ void DrawScene()
 {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(shaderProgramID);
+    glUseProgram(shaderProgramID);  //지금부터 그림 그릴 때 이 Shader Program을 사용해라.
     glBindVertexArray(vao);
     for (int i = 0; i < shapeCount; ++i) {
         const Shape& s = shapes[i];
@@ -253,7 +275,7 @@ void DrawScene()
         float rectangle[] = { l,b,0, r,b,0, r,t,0, l,b,0, r,t,0, l,t,0 };
         float triangle[] = { l,b,0, r,b,0, s.x,t,0 };
         float line[] = { l,b,0, r,t,0 };
-        if (s.type == 1) UploadAndDraw(line, 2, GL_LINES, s.r, s.g, s.b);
+        if (s.type == 1) UploadAndDraw(line, 2, GL_LINES, s.r, s.g, s.b);                   //UploadAndDraw()가 진짜 데이터를 넣는다
         else if (s.type == 2) UploadAndDraw(triangle, 3, GL_TRIANGLES, s.r, s.g, s.b);
         else UploadAndDraw(rectangle, 6, GL_TRIANGLES, s.r, s.g, s.b);
     }
