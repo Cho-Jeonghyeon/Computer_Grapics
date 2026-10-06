@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
+#include <cmath>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -21,19 +23,49 @@ struct Triangle {
     float size;
     float r, g, b;
     bool growing;
+    float speed, dx, dy;
+    float headingX, headingY;
 };
 Triangle triangles[4];
 const float MIN_SIZE = 0.05f;
 const float MAX_SIZE = 0.30f;
 bool filled = true;
+int movementMode = 1;
+float windowAspect = float(WIDTH) / HEIGHT;
 GLuint shaderProgramID = 0;
 GLuint vao = 0, vbo[2] = {};
 
 void InputProcess(GLFWwindow* window);
 void DrawScene();
 
+float CenterLimit(const Triangle& t)
+{
+
+    return 1.0f - t.size * 1.17f;
+}
+
+void KeepInside(Triangle& t)
+{
+
+    float limit = CenterLimit(t);
+    t.x = clamp(t.x, -limit, limit);
+    t.y = clamp(t.y, -limit, limit);
+}
+
+void SetHeading(Triangle& t, float x, float y)
+{
+
+    x *= windowAspect;
+    float length = sqrt(x * x + y * y);
+    if (length > 0.000001f) {
+        t.headingX = x / length;
+        t.headingY = y / length;
+    }
+}
+
 string filetobuf(const char* name)
 {
+
     wchar_t exePath[32768];
     DWORD length = GetModuleFileNameW(nullptr, exePath, 32768);
 
@@ -55,7 +87,6 @@ string filetobuf(const char* name)
 }
 
 GLuint MakeShader(const char* name, GLenum type)
-
 {
     string sourceText = filetobuf(name);
     if (sourceText.empty()) return 0;
@@ -67,6 +98,7 @@ GLuint MakeShader(const char* name, GLenum type)
     glCompileShader(shader);
 
     GLint result;
+
     glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
     if (!result) {
         char log[2048];
@@ -81,6 +113,7 @@ GLuint MakeShader(const char* name, GLenum type)
 
 bool InitShader()
 {
+
     GLuint vertexShader = MakeShader("vertex.glsl", GL_VERTEX_SHADER);
     GLuint fragmentShader = MakeShader("fragment.glsl", GL_FRAGMENT_SHADER);
     if (!vertexShader || !fragmentShader) {
@@ -99,6 +132,7 @@ bool InitShader()
     glDeleteShader(fragmentShader);
 
     GLint result;
+
     glGetProgramiv(shaderProgramID, GL_LINK_STATUS, &result);
 
     if (!result) {
@@ -111,6 +145,7 @@ bool InitShader()
 
 void InitBuffer()
 {
+
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
     glGenBuffers(2, vbo);
@@ -118,20 +153,22 @@ void InitBuffer()
         glBindBuffer(GL_ARRAY_BUFFER, vbo[i]);
 
         glBufferData(GL_ARRAY_BUFFER, 4 * 3 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+
         glVertexAttribPointer(i, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
 
         glEnableVertexAttribArray(i);
     }
-
 }
 
 float RandomFloat(float low, float high)
 {
+
     return low + (high - low) * (float(rand()) / RAND_MAX);
 }
 
 int GetQuadrant(float x, float y)
 {
+
     if (y >= 0) return x >= 0 ? 0 : 1;
     return x < 0 ? 2 : 3;
 }
@@ -149,10 +186,18 @@ void CreateTriangle(int index, float x, float y)
     t.b = RandomFloat(0.1f, 0.85f);
     t.growing = true;
 
+    t.speed = 0.22f + index * 0.08f + RandomFloat(0.0f, 0.03f);
+
+    t.dx = (index == 0 || index == 3) ? 1.0f : -1.0f;
+    t.dy = index < 2 ? 1.0f : -1.0f;
+    t.headingX = 0;
+    t.headingY = 1;
+    KeepInside(t);
 }
 
 void ResetScene()
 {
+
     CreateTriangle(0,  0.5f,  0.5f);
     CreateTriangle(1, -0.5f,  0.5f);
     CreateTriangle(2, -0.5f, -0.5f);
@@ -161,6 +206,7 @@ void ResetScene()
 
 void ResizeTriangle(int index)
 {
+
     Triangle& t = triangles[index];
 
     t.size += t.growing ? 0.025f : -0.025f;
@@ -172,11 +218,52 @@ void ResizeTriangle(int index)
         t.size = MIN_SIZE;
         t.growing = true;
     }
+    KeepInside(t);
+}
 
+void BounceAxis(float& position, float& direction, float limit)
+{
+
+    if (position > limit) {
+        position = 2.0f * limit - position;
+        direction = -abs(direction);
+    } else if (position < -limit) {
+        position = -2.0f * limit - position;
+        direction = abs(direction);
+    }
+}
+
+void MoveBounce(Triangle& t, float distance)
+{
+
+    t.x += t.dx * distance * 0.8f;
+    t.y += t.dy * distance * 0.6f;
+    BounceAxis(t.x, t.dx, CenterLimit(t));
+    BounceAxis(t.y, t.dy, CenterLimit(t));
+    SetHeading(t, t.dx * 0.8f, t.dy * 0.6f);
+}
+
+void SetMovementMode(int mode)
+{
+
+    movementMode = mode;
+    for (Triangle& t : triangles) {
+        }
+    cout << "Movement mode: " << mode << '\n';
+}
+
+void UpdateTriangles(float deltaTime)
+{
+
+    for (Triangle& t : triangles) {
+        float distance = t.speed * deltaTime;
+        if (movementMode == 1) MoveBounce(t, distance);
+    }
 }
 
 void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
 {
+
     if (action != GLFW_PRESS) return;
     if (button != GLFW_MOUSE_BUTTON_LEFT && button != GLFW_MOUSE_BUTTON_RIGHT) return;
     int width, height;
@@ -199,15 +286,19 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
 
 void KeyCallback(GLFWwindow* window, int key, int, int action, int)
 {
+
     if (action != GLFW_PRESS) return;
     if (key == GLFW_KEY_A) filled = true;
     if (key == GLFW_KEY_B) filled = false;
     if (key == GLFW_KEY_C) ResetScene();
     if (key == GLFW_KEY_Q) glfwSetWindowShouldClose(window, true);
+    if (key >= GLFW_KEY_1 && key <= GLFW_KEY_1)
+        SetMovementMode(key - GLFW_KEY_1 + 1);
 }
 
 void UploadAndDraw(const float* positions, int count, GLenum mode, float r, float g, float b)
 {
+
     float colors[4][3];
 
     for (int i = 0; i < count; ++i) {
@@ -222,11 +313,11 @@ void UploadAndDraw(const float* positions, int count, GLenum mode, float r, floa
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glBufferSubData(GL_ARRAY_BUFFER, 0, count * 3 * sizeof(float), colors);
     glDrawArrays(mode, 0, count);
-
 }
 
 void DrawScene()
 {
+
     glClearColor(1, 1, 1, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     glUseProgram(shaderProgramID);
@@ -236,11 +327,13 @@ void DrawScene()
         float w = t.size * 0.6f;
         float h = t.size;
 
-        float positions[] = {
-            t.x - w, t.y - h, 0,
-            t.x + w, t.y - h, 0,
-            t.x,     t.y + h, 0
-        };
+        float positions[] = { -w,-h,0, w,-h,0, 0,h,0 };
+        for (int j = 0; j < 3; ++j) {
+            float x = positions[j * 3], y = positions[j * 3 + 1];
+
+            positions[j * 3] = t.x + (x * t.headingY + y * t.headingX) * min(1.0f, 1.0f / windowAspect);
+            positions[j * 3 + 1] = t.y + (-x * t.headingX + y * t.headingY) * min(1.0f, windowAspect);
+        }
 
         UploadAndDraw(positions, 3, filled ? GL_TRIANGLES : GL_LINE_LOOP, t.r, t.g, t.b);
     }
@@ -258,6 +351,7 @@ void InputProcess(GLFWwindow* window)
 
 int main()
 {
+
     srand(unsigned(time(nullptr)));
 
     if (!glfwInit()) { cerr << "Failed to initialize GLFW\n"; return -1; }
@@ -291,17 +385,29 @@ int main()
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 
         glViewport(0, 0, width, height);
+        if (width > 0 && height > 0) {
+            windowAspect = float(width) / height;
+        }
     });
     int width, height;
 
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
+    if (width > 0 && height > 0) windowAspect = float(width) / height;
     cout << "Left click: replace triangle in quadrant | Right click: resize\n"
-        << "A: filled | B: outline | C: reset all | Q / Esc: exit\n";
+        << "A: filled | B: outline | C: reset all | Q / Esc: exit\n"
+        << "1: bounce\n"
+        << "Quadrant slots: upper-right 1, upper-left 2, lower-left 3, lower-right 4\n";
+    double previousTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
+        double currentTime = glfwGetTime();
+
+        float deltaTime = min(float(currentTime - previousTime), 0.05f);
+        previousTime = currentTime;
 
         glfwPollEvents();
         InputProcess(window);
+        UpdateTriangles(deltaTime);
         DrawScene();
         glfwSwapBuffers(window);
     }
