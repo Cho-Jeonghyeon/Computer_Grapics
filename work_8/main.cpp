@@ -25,6 +25,7 @@ struct Triangle {
 Triangle triangles[4];
 const float MIN_SIZE = 0.05f;
 const float MAX_SIZE = 0.30f;
+bool filled = true;
 GLuint shaderProgramID = 0;
 GLuint vao = 0, vbo[2] = {};
 
@@ -201,6 +202,16 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int)
         ResizeTriangle(index);
 }
 
+void KeyCallback(GLFWwindow* window, int key, int, int action, int)
+{
+
+    if (action != GLFW_PRESS) return;
+    if (key == GLFW_KEY_A) filled = true;
+    if (key == GLFW_KEY_B) filled = false;
+    if (key == GLFW_KEY_C) ResetScene();
+    if (key == GLFW_KEY_Q) glfwSetWindowShouldClose(window, true);
+}
+
 void UploadAndDraw(const float* positions, int count, GLenum mode, float r, float g, float b)
 {
 
@@ -238,7 +249,7 @@ void DrawScene()
             t.x,     t.y + h, 0
         };
 
-        UploadAndDraw(positions, 3, GL_TRIANGLES, t.r, t.g, t.b);
+        UploadAndDraw(positions, 3, filled ? GL_TRIANGLES : GL_LINE_LOOP, t.r, t.g, t.b);
     }
 
     float axes[] = { -1,0,0, 1,0,0, 0,-1,0, 0,1,0 };
@@ -283,6 +294,7 @@ int main()
     ResetScene();
     glfwSwapInterval(1);
 
+    glfwSetKeyCallback(window, KeyCallback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
 
@@ -293,7 +305,7 @@ int main()
     glfwGetFramebufferSize(window, &width, &height);
     glViewport(0, 0, width, height);
     cout << "Left click: replace triangle in quadrant | Right click: resize\n"
-        << "Esc: exit\n";
+        << "A: filled | B: outline | C: reset all | Q / Esc: exit\n";
     while (!glfwWindowShouldClose(window)) {
 
         glfwPollEvents();
