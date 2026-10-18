@@ -24,4 +24,9 @@
   <Project Path="work_15/work_15.vcxproj" Id="8e44984c-7d20-47d1-9ab8-3e82b3aa0939" />
   <Project Path="work_16/work_16.vcxproj" Id="2ffc7f6d-9778-4beb-aac2-53f4a645a6f3" />
   <Project Path="work_17/work_17.vcxproj" Id="adcb266b-bbaa-4b26-bd3f-0e8fcc6f4382" />
+  <Project Path="work_18/work_18.vcxproj" Id="752f45ee-3779-4ee6-bca0-a3e410eeb49f" />
+  <Project Path="work_19/work_19.vcxproj" Id="4acc639b-8ebd-44ef-acaa-77d079cc41e0" />
+  <Project Path="work_20/work_20.vcxproj" Id="720b7907-76f2-40f0-9978-9781c80db460" />
+  <Project Path="work_21/work_21.vcxproj" Id="cdcf48ef-ef0d-40b0-9317-c2f7cfc50708" />
+  <Project Path="work_22/work_22.vcxproj" Id="0c240a46-2f8e-4e91-bdc0-4f100f743e76" />
 </Solution>
