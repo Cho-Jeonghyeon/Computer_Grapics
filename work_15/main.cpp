@@ -92,7 +92,7 @@ bool InitShader()
     return result == GL_TRUE;
 }
 
-//--- 육면체의 여섯 면을 각각 삼각형 두 개로 구성한다.
+//--- 육면체, 사각뿔, 좌표축 순서로 정점을 저장하고 면마다 색상을 지정한다.
 void InitBuffer()
 {
     const GLfloat positions[][3] = {
@@ -113,17 +113,40 @@ void InitBuffer()
         {-0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f}, {-0.5f, 0.5f,-0.5f},
         //--- 아랫면
         {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f},
-        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f}
+        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f},
+        //--- 사각뿔은 바닥 모서리 두 점과 꼭대기를 연결해서 옆면을 만든다.
+        {-0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f, 0.5f}, {0.0f,0.5f,0.0f},
+        { 0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f}, {0.0f,0.5f,0.0f},
+        {-0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f, 0.5f}, {0.0f,0.5f,0.0f},
+        { 0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f,-0.5f}, {0.0f,0.5f,0.0f},
+        //--- 사각뿔 바닥은 사각형이므로 삼각형 두 개가 필요하다.
+        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f},
+        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f},
+        //--- 원점을 지나는 x, y, z축을 -1부터 1까지 그린다.
+        {-1.0f,0.0f,0.0f}, {1.0f,0.0f,0.0f},
+        {0.0f,-1.0f,0.0f}, {0.0f,1.0f,0.0f},
+        {0.0f,0.0f,-1.0f}, {0.0f,0.0f,1.0f}
     };
     const GLfloat faceColors[6][3] = {
         {1.0f, 0.2f, 0.2f}, {0.2f, 1.0f, 1.0f},
         {0.2f, 0.8f, 0.2f}, {0.2f, 0.4f, 1.0f},
         {1.0f, 0.8f, 0.2f}, {0.8f, 0.2f, 1.0f}
     };
-    GLfloat colors[36][3];
+    GLfloat colors[60][3];
     for (int i = 0; i < 36; ++i)
         for (int j = 0; j < 3; ++j)
             colors[i][j] = faceColors[i / 6][j];
+
+    //--- 같은 면의 정점은 같은 색으로 채워야 면 단위로 구분하기 쉽다.
+    for (int i = 0; i < 18; ++i) {
+        int face = i < 12 ? i / 3 : 5;
+        for (int j = 0; j < 3; ++j)
+            colors[36 + i][j] = faceColors[face][j];
+    }
+    //--- x는 빨강, y는 초록, z는 파랑으로 구분한다.
+    for (int i = 0; i < 6; ++i)
+        for (int j = 0; j < 3; ++j)
+            colors[54 + i][j] = (i / 2 == j) ? 1.0f : 0.0f;
 
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -165,6 +188,7 @@ void DrawScene()
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(vao);
+    glDrawArrays(GL_LINES, 54, 6);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
