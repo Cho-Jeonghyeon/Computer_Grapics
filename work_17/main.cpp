@@ -206,28 +206,37 @@ void InitBuffer()
 void DrawScene()
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(1, 1, 1, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
-
-    //--- 모델링 변환: 원점에 육면체 하나를 배치한다.
-    glm::mat4 model = glm::mat4(1.0f);
-    //--- 뷰잉 변환: 세 면이 보이는 위치에서 원점을 바라본다.
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 1.5f, 3.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    //--- 투영 변환: 현재 창의 종횡비로 원근 투영한다.
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f),
-        float(screenWidth) / float(screenHeight), 0.1f, 100.0f);
-
+    glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0), glm::vec3(0, 1, 0));
+    float aspect = float(screenWidth) / float(screenHeight);
+    glm::mat4 projection = aspect >= 1.0f
+        ? glm::ortho(-2.4f * aspect, 2.4f * aspect, -2.4f, 2.4f, 0.1f, 20.0f)
+        : glm::ortho(-2.4f, 2.4f, -2.4f / aspect, 2.4f / aspect, 0.1f, 20.0f);
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
-    GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
-    GLint projLoc = glGetUniformLocation(shaderProgramID, "projection");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
-
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, &view[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "projection"), 1, GL_FALSE, &projection[0][0]);
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    //--- 기준 축과 두 도형의 기준 자세를 X/Y축으로 각각 30도 기울인다.
+    glm::mat4 tilt = glm::rotate(glm::mat4(1), glm::radians(30.0f), glm::vec3(1, 0, 0));
+    tilt = glm::rotate(tilt, glm::radians(30.0f), glm::vec3(0, 1, 0));
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &tilt[0][0]);
+    glDrawArrays(GL_LINES, AXIS_FIRST, AXIS_COUNT);
+    //--- 같은 버퍼에서 왼쪽 구와 오른쪽 정육면체를 골라 그린다.
+    for (int i = 0; i < 2; ++i) {
+        ObjectState& obj = objects[i];
+        glm::mat4 model = tilt;
+        model = glm::rotate(model, glm::radians(obj.orbitY), glm::vec3(0, 1, 0));
+        model = glm::scale(model, glm::vec3(obj.originScale));
+        model = glm::translate(model, glm::vec3(obj.startPosition + obj.move, 0.0f));
+        model = glm::rotate(model, glm::radians(obj.selfX), glm::vec3(1, 0, 0));
+        model = glm::rotate(model, glm::radians(obj.selfY), glm::vec3(0, 1, 0));
+        model = glm::scale(model, glm::vec3(obj.localScale));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+        bool drawCube = (i == 1) != swappedShapes;
+        glDrawArrays(GL_TRIANGLES, drawCube ? CUBE_FIRST : SPHERE_FIRST, drawCube ? CUBE_COUNT : SPHERE_COUNT);
+    }
 }
 
 void InputProcess(GLFWwindow* window)
