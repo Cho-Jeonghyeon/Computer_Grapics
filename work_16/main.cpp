@@ -196,6 +196,11 @@ glm::mat4 FaceTransform(int face)
         float angle = face == 0 ? swapAngle : -swapAngle;
         return RotateAt(apex, angle, glm::vec3(0,1,0));
     }
+    if (animationMode == 9) {
+        //--- 이번에는 아래 모서리가 아니라 꼭대기를 고정한다.
+        //--- 아래쪽을 바깥으로 벌려야 하므로 아래 모서리 회전 때와 부호가 반대다.
+        return RotateAt(apex, -90.0f * faceProgress[face], hingeAxes[face]);
+    }
     return glm::mat4(1.0f);
 }
 
@@ -239,7 +244,7 @@ void KeyCallback(GLFWwindow*, int key, int, int action, int)
     if (action != GLFW_PRESS) return;
     if (key == GLFW_KEY_R) { ResetAnimation(); depthTest = true; return; }
     if (key == GLFW_KEY_H) { depthTest = !depthTest; return; }
-    if (key < GLFW_KEY_6 || key > GLFW_KEY_8) return;
+    if (key < GLFW_KEY_6 || key > GLFW_KEY_9) return;
     int mode = key - GLFW_KEY_0;
     if (animationMode != mode) {
         //--- 기준점이 다른 동작으로 전환할 때는 원래 사각뿔에서 다시 시작한다.
