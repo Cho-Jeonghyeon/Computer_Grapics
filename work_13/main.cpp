@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <algorithm>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -171,14 +172,17 @@ void DrawScene()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
 
-    //--- 모델링 변환: 원점에 육면체 하나를 배치한다.
+    //--- 정면만 보면 입체가 잘 안 보여서 x, y축으로 각각 30도 기울인다.
+    //--- 행렬은 오른쪽부터 적용되므로 정점에는 y 회전 후 x 회전이 적용된다.
     glm::mat4 model = glm::mat4(1.0f);
-    //--- 뷰잉 변환: 세 면이 보이는 위치에서 원점을 바라본다.
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 1.5f, 3.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    //--- 투영 변환: 현재 창의 종횡비로 원근 투영한다.
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f),
-        float(screenWidth) / float(screenHeight), 0.1f, 100.0f);
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 view = glm::mat4(1.0f);
+    //--- 실습의 [-1, 1] 범위를 그대로 보려고 직교 투영을 사용한다.
+    //--- 정사각형 뷰포트를 중앙에 두면 창 크기가 바뀌어도 도형이 늘어나지 않는다.
+    glm::mat4 projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -2.0f, 2.0f);
+    int side = min(screenWidth, screenHeight);
+    glViewport((screenWidth - side) / 2, (screenHeight - side) / 2, side, side);
 
     GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
     GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
@@ -188,6 +192,7 @@ void DrawScene()
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(vao);
+    //--- 축도 같은 방향으로 기울이면 도형과 좌표축의 관계를 볼 수 있다.
     glDrawArrays(GL_LINES, 54, 6);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
