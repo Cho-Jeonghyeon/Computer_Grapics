@@ -25,9 +25,9 @@ void DrawScene();
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 //--- 정점을 매번 바꾸는 대신, 지금 보여 줄 면만 기억해 두면 된다.
-//--- 처음에는 육면체 전체를 보여 주고 키를 누르면 선택한 면으로 바꾼다.
+//--- 처음에는 모든 면을 꺼서 좌표축만 보여 주고, 키를 누르면 선택한 면을 그린다.
 bool drawCube = true;
-bool cubeFaces[6] = { true, true, true, true, true, true };
+bool cubeFaces[6] = {};
 bool pyramidFaces[5] = {}; // 앞, 뒤, 왼쪽, 오른쪽, 바닥
 mt19937 randomEngine(random_device{}());
 
