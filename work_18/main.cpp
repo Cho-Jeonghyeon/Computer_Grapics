@@ -265,12 +265,12 @@ void InputProcess(GLFWwindow* window)
         Pressed(window, GLFW_KEY_W) - Pressed(window, GLFW_KEY_S)
             + Pressed(window, GLFW_KEY_UP) - Pressed(window, GLFW_KEY_DOWN));
     if (glm::length(moveDirection) > 1.0f) moveDirection = glm::normalize(moveDirection);
-    sceneOffset.x += moveDirection.x * 1.5f * dt;
-    sceneOffset.y += moveDirection.y * 1.5f * dt;
     float zForward = Pressed(window, GLFW_KEY_KP_ADD) + Pressed(window, GLFW_KEY_EQUAL) *
         (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS ? 1.0f : 0.0f);
     float zBackward = Pressed(window, GLFW_KEY_KP_SUBTRACT) + Pressed(window, GLFW_KEY_MINUS);
-    sceneOffset.z += (zForward - zBackward) * 1.5f * dt;
+    glm::vec3 fullMoveDirection(moveDirection, zForward - zBackward);
+    if (glm::length(fullMoveDirection) > 1.0f) fullMoveDirection = glm::normalize(fullMoveDirection);
+    sceneOffset += fullMoveDirection * 1.5f * dt;
 }
 
 void DrawScene()
