@@ -49,6 +49,8 @@ int specialAnimation = 0; // 0: 없음, 1: 원점을 지나 자리 바꾸기, 2:
 
 
 void InputProcess(GLFWwindow* window);
+void ResetScene();
+float HeldDirection(GLFWwindow* window, int key);
 void DrawScene();
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
@@ -241,8 +243,52 @@ void DrawScene()
 
 void InputProcess(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+    float now = float(glfwGetTime());
+    float dt = lastFrameTime == 0.0f ? 0.0f : min(now - lastFrameTime, 0.05f);
+    lastFrameTime = now;
+    //--- 계속 누르는 동안 변환을 반복하는 키는 매 프레임 폴링한다.
+    for (int i = 0; i < 2; ++i) {
+        if (!(selectedObjects & (1 << i))) continue;
+        ObjectState& obj = objects[i];
+        obj.selfX += HeldDirection(window, GLFW_KEY_X) * 90.0f * dt;
+        obj.selfY += HeldDirection(window, GLFW_KEY_Y) * 90.0f * dt;
+        obj.orbitY += HeldDirection(window, GLFW_KEY_R) * 90.0f * dt;
+        obj.localScale = glm::clamp(obj.localScale + HeldDirection(window, GLFW_KEY_A) * dt, 0.2f, 2.5f);
+        obj.originScale = glm::clamp(obj.originScale + HeldDirection(window, GLFW_KEY_B) * dt, 0.2f, 2.5f);
+        obj.move.x -= HeldDirection(window, GLFW_KEY_D) * dt;
+        obj.move.y += HeldDirection(window, GLFW_KEY_E) * dt;
+    }
+}
+
+float HeldDirection(GLFWwindow* window, int key)
+{
+    if (glfwGetKey(window, key) != GLFW_PRESS) return 0.0f;
+    bool shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
+    return shift ? -1.0f : 1.0f;
+}
+
+void ResetScene()
+{
+    objects[0] = ObjectState{};
+    objects[1] = ObjectState{};
+    objects[0].startPosition = glm::vec2(-0.8f, 0.0f);
+    objects[1].startPosition = glm::vec2(0.8f, 0.0f);
+    selectedObjects = 3;
+    swappedShapes = false;
+    specialAnimation = 0;
+    specialTime = 0.0f;
+}
+
+void KeyCallback(GLFWwindow*, int key, int, int action, int)
+{
+    if (action != GLFW_PRESS) return;
+    //--- 한 번 눌러 상태를 바꾸는 선택과 초기화는 콜백으로 처리한다.
+    if (key == GLFW_KEY_1) selectedObjects = 1;
+    else if (key == GLFW_KEY_2) selectedObjects = 2;
+    else if (key == GLFW_KEY_3) selectedObjects = 3;
+    else if (key == GLFW_KEY_C) swappedShapes = !swappedShapes;
+    else if (key == GLFW_KEY_S) ResetScene();
 }
 
 int main()
@@ -265,6 +311,7 @@ int main()
     }
     InitBuffer();
     glEnable(GL_DEPTH_TEST);
+    glfwSetKeyCallback(window, KeyCallback);
     glfwSwapInterval(1);
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
