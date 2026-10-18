@@ -259,8 +259,10 @@ void InputProcess(GLFWwindow* window)
     if (centerPulseAnimation) centerPulseTime += dt;
 
     //--- WASD와 +/-는 누르는 동안 계속 적용하므로 프레임 시간으로 이동량을 맞춘다.
-    sceneOffset.x += (Pressed(window, GLFW_KEY_D) - Pressed(window, GLFW_KEY_A)) * 1.5f * dt;
-    sceneOffset.y += (Pressed(window, GLFW_KEY_W) - Pressed(window, GLFW_KEY_S)) * 1.5f * dt;
+    sceneOffset.x += (Pressed(window, GLFW_KEY_D) - Pressed(window, GLFW_KEY_A)
+        + Pressed(window, GLFW_KEY_RIGHT) - Pressed(window, GLFW_KEY_LEFT)) * 1.5f * dt;
+    sceneOffset.y += (Pressed(window, GLFW_KEY_W) - Pressed(window, GLFW_KEY_S)
+        + Pressed(window, GLFW_KEY_UP) - Pressed(window, GLFW_KEY_DOWN)) * 1.5f * dt;
     float zForward = Pressed(window, GLFW_KEY_KP_ADD) + Pressed(window, GLFW_KEY_EQUAL) *
         (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS ? 1.0f : 0.0f);
     float zBackward = Pressed(window, GLFW_KEY_KP_SUBTRACT) + Pressed(window, GLFW_KEY_MINUS);
