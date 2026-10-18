@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <random>
 #include <algorithm>
 
 #define WIDTH 1920
@@ -21,6 +22,14 @@ int screenWidth = WIDTH, screenHeight = HEIGHT;
 
 void InputProcess(GLFWwindow* window);
 void DrawScene();
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+//--- 정점을 매번 바꾸는 대신, 지금 보여 줄 면만 기억해 두면 된다.
+//--- 처음에는 육면체 전체를 보여 주고 키를 누르면 선택한 면으로 바꾼다.
+bool drawCube = true;
+bool cubeFaces[6] = { true, true, true, true, true, true };
+bool pyramidFaces[5] = {}; // 앞, 뒤, 왼쪽, 오른쪽, 바닥
+mt19937 randomEngine(random_device{}());
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
 string filetobuf(const char* name)
@@ -93,7 +102,8 @@ bool InitShader()
     return result == GL_TRUE;
 }
 
-//--- 육면체의 여섯 면을 각각 삼각형 두 개로 구성한다.
+//--- 한 VAO에 육면체 36개, 사각뿔 18개, 좌표축 6개의 정점을 순서대로 넣는다.
+//--- 그릴 때는 각 면의 시작 번호와 정점 개수만 골라서 넘기면 된다.
 void InitBuffer()
 {
     const GLfloat positions[][3] = {
@@ -194,11 +204,51 @@ void DrawScene()
     glBindVertexArray(vao);
     //--- 축도 같은 방향으로 기울이면 도형과 좌표축의 관계를 볼 수 있다.
     glDrawArrays(GL_LINES, 54, 6);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    //--- 선택한 면만 그린다. 겹치는 부분은 깊이 검사가 앞뒤를 구분한다.
+    if (drawCube) {
+        for (int i = 0; i < 6; ++i)
+            if (cubeFaces[i]) glDrawArrays(GL_TRIANGLES, i * 6, 6);
+    } else {
+        for (int i = 0; i < 4; ++i)
+            if (pyramidFaces[i]) glDrawArrays(GL_TRIANGLES, 36 + i * 3, 3);
+        if (pyramidFaces[4]) glDrawArrays(GL_TRIANGLES, 48, 6);
+    }
+}
+
+//--- 면 선택은 키를 누르는 순간 한 번만 바뀌어야 하므로 콜백으로 처리한다.
+void KeyCallback(GLFWwindow*, int key, int, int action, int)
+{
+    //--- REPEAT까지 받으면 키를 길게 누르는 동안 랜덤 면이 계속 바뀐다.
+    if (action != GLFW_PRESS) return;
+    bool cubeKey = key >= GLFW_KEY_1 && key <= GLFW_KEY_6;
+    bool pyramidKey = (key >= GLFW_KEY_7 && key <= GLFW_KEY_9) || key == GLFW_KEY_0;
+    if (!cubeKey && !pyramidKey && key != GLFW_KEY_C && key != GLFW_KEY_T) return;
+
+    //--- 이번에 고른 면만 보여 주기 위해 이전 선택부터 지운다.
+    for (bool& face : cubeFaces) face = false;
+    for (bool& face : pyramidFaces) face = false;
+    drawCube = cubeKey || key == GLFW_KEY_C;
+    if (cubeKey) {
+        cubeFaces[key - GLFW_KEY_1] = true;
+    } else if (pyramidKey) {
+        int face = key == GLFW_KEY_0 ? 3 : key - GLFW_KEY_7;
+        pyramidFaces[face] = true;
+    } else if (key == GLFW_KEY_C) {
+        //--- 두 번째 번호는 첫 번째 면을 건너뛰게 해서 서로 다른 두 면을 고른다.
+        int first = uniform_int_distribution<int>(0, 5)(randomEngine);
+        int second = uniform_int_distribution<int>(0, 4)(randomEngine);
+        if (second >= first) ++second;
+        cubeFaces[first] = cubeFaces[second] = true;
+    } else if (key == GLFW_KEY_T) {
+        //--- 바닥은 항상 켜고, 네 옆면 중 하나만 추가한다.
+        pyramidFaces[4] = true;
+        pyramidFaces[uniform_int_distribution<int>(0, 3)(randomEngine)] = true;
+    }
 }
 
 void InputProcess(GLFWwindow* window)
 {
+    //--- 종료는 현재 눌려 있는지만 확인하면 되므로 폴링으로 처리한다.
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 }
@@ -210,7 +260,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "cube", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_13 - Face Selection", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
@@ -224,6 +274,11 @@ int main()
     InitBuffer();
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(1);
+    glfwSetKeyCallback(window, KeyCallback);
+    cout << "1~6: cube front/back/left/right/top/bottom\n"
+         << "7/8/9/0: pyramid front/back/left/right\n"
+         << "C: two random cube faces | T: pyramid base + one random side\n"
+         << "Axes: X red, Y green, Z blue | Esc: exit\n";
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
