@@ -92,38 +92,36 @@ bool InitShader()
     return result == GL_TRUE;
 }
 
-//--- 육면체의 여섯 면을 각각 삼각형 두 개로 구성한다.
+//--- 사각뿔과 좌표축의 정점을 하나의 VAO/VBO에 저장한다.
 void InitBuffer()
 {
     const GLfloat positions[][3] = {
-        //--- 앞면
-        {-0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f},
-        {-0.5f,-0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f},
-        //--- 뒷면
-        { 0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f}, {-0.5f, 0.5f,-0.5f},
-        { 0.5f,-0.5f,-0.5f}, {-0.5f, 0.5f,-0.5f}, { 0.5f, 0.5f,-0.5f},
-        //--- 왼쪽 면
-        {-0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f, 0.5f}, {-0.5f, 0.5f, 0.5f},
-        {-0.5f,-0.5f,-0.5f}, {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f},
-        //--- 오른쪽 면
-        { 0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f,-0.5f}, { 0.5f, 0.5f,-0.5f},
-        { 0.5f,-0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f}, { 0.5f, 0.5f, 0.5f},
-        //--- 윗면
-        {-0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f},
-        {-0.5f, 0.5f, 0.5f}, { 0.5f, 0.5f,-0.5f}, {-0.5f, 0.5f,-0.5f},
-        //--- 아랫면
+        //--- 사각뿔은 바닥 모서리 두 점과 꼭대기를 연결해서 옆면을 만든다.
+        {-0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f, 0.5f}, {0.0f,0.5f,0.0f},
+        { 0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f,-0.5f}, {0.0f,0.5f,0.0f},
+        {-0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f, 0.5f}, {0.0f,0.5f,0.0f},
+        { 0.5f,-0.5f, 0.5f}, { 0.5f,-0.5f,-0.5f}, {0.0f,0.5f,0.0f},
+        //--- 사각뿔 바닥은 사각형이므로 삼각형 두 개가 필요하다.
         {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f},
-        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f}
+        {-0.5f,-0.5f,-0.5f}, { 0.5f,-0.5f, 0.5f}, {-0.5f,-0.5f, 0.5f},
+        //--- 원점을 지나는 x, y, z축을 -1부터 1까지 그린다.
+        {-1.0f,0.0f,0.0f}, {1.0f,0.0f,0.0f},
+        {0.0f,-1.0f,0.0f}, {0.0f,1.0f,0.0f},
+        {0.0f,0.0f,-1.0f}, {0.0f,0.0f,1.0f}
     };
-    const GLfloat faceColors[6][3] = {
-        {1.0f, 0.2f, 0.2f}, {0.2f, 1.0f, 1.0f},
-        {0.2f, 0.8f, 0.2f}, {0.2f, 0.4f, 1.0f},
-        {1.0f, 0.8f, 0.2f}, {0.8f, 0.2f, 1.0f}
+    const GLfloat faceColors[5][3] = {
+        {1.0f,0.1f,0.1f}, {0.1f,1.0f,0.1f}, {1.0f,0.9f,0.1f},
+        {0.1f,0.2f,1.0f}, {1.0f,0.1f,1.0f}
     };
-    GLfloat colors[36][3];
-    for (int i = 0; i < 36; ++i)
+    GLfloat colors[24][3];
+    //--- 옆면은 각각 3개, 바닥은 6개 정점이다. 같은 면에는 같은 색을 넣는다.
+    for (int i = 0; i < 18; ++i) {
+        int face = i < 12 ? i / 3 : 4;
+        for (int j = 0; j < 3; ++j) colors[i][j] = faceColors[face][j];
+    }
+    for (int i = 0; i < 6; ++i)
         for (int j = 0; j < 3; ++j)
-            colors[i][j] = faceColors[i / 6][j];
+            colors[18 + i][j] = (i / 2 == j) ? 1.0f : 0.0f;
 
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -165,7 +163,9 @@ void DrawScene()
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDrawArrays(GL_LINES, 18, 6);
+    glDrawArrays(GL_TRIANGLES, 12, 6);
+    glDrawArrays(GL_TRIANGLES, 0, 12);
 }
 
 void InputProcess(GLFWwindow* window)
@@ -181,7 +181,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "cube", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_16 - Pyramid Animation", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
