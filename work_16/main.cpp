@@ -48,6 +48,7 @@ void ResetAnimation()
     animationMode = 0;
     opening = false;
     for (float& progress : faceProgress) progress = 0.0f;
+    swapAngle = 0.0f;
 }
 
 float Approach(float value, float target, float step)
@@ -189,6 +190,12 @@ glm::mat4 FaceTransform(int face)
         return RotateAt(hinges[face], faceProgress[face] * 2.0f * flatAngle, hingeAxes[face]);
     if (animationMode == 7)
         return RotateAt(hinges[face], faceProgress[face] * flatAngle, hingeAxes[face]);
+    if (animationMode == 8 && face < 2) {
+        //--- 앞면과 뒷면을 꼭대기를 지나는 y축으로 서로 반대 방향 180도 회전한다.
+        //--- 꼭대기는 고정된 채 두 면의 바닥 모서리가 서로의 자리로 이동한다.
+        float angle = face == 0 ? swapAngle : -swapAngle;
+        return RotateAt(apex, angle, glm::vec3(0,1,0));
+    }
     return glm::mat4(1.0f);
 }
 
@@ -232,7 +239,7 @@ void KeyCallback(GLFWwindow*, int key, int, int action, int)
     if (action != GLFW_PRESS) return;
     if (key == GLFW_KEY_R) { ResetAnimation(); depthTest = true; return; }
     if (key == GLFW_KEY_H) { depthTest = !depthTest; return; }
-    if (key != GLFW_KEY_6 && key != GLFW_KEY_7) return;
+    if (key < GLFW_KEY_6 || key > GLFW_KEY_8) return;
     int mode = key - GLFW_KEY_0;
     if (animationMode != mode) {
         //--- 기준점이 다른 동작으로 전환할 때는 원래 사각뿔에서 다시 시작한다.
@@ -269,6 +276,8 @@ void UpdateAnimation(float dt)
             faceProgress[face] = Approach(faceProgress[face], target, step);
             remaining -= step;
         }
+    } else if (animationMode == 8) {
+        swapAngle = Approach(swapAngle, opening ? 180.0f : 0.0f, 90.0f * dt);
     }
 }
 
@@ -295,6 +304,7 @@ int main()
     glfwSwapInterval(1);
     glfwSetKeyCallback(window, KeyCallback);
     cout << "6: open/close all sides | 7: open/close sides in sequence\n"
+         << "8: swap opposite sides | 9: open/close around apex\n"
          << "R: reset | H: depth test | Q/Esc: exit\n";
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
