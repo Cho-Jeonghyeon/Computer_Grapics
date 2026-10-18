@@ -21,6 +21,16 @@ int screenWidth = WIDTH, screenHeight = HEIGHT;
 
 void InputProcess(GLFWwindow* window);
 void DrawScene();
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+//--- 입력은 상태만 바꾸고, DrawScene은 이 상태를 읽어서 그리도록 나눈다.
+//--- 처음에는 좌표축만 보이고 C 또는 P를 눌러 도형을 선택한다.
+int objectType = 0; // 0: 선택 전, 1: 육면체, 2: 사각뿔
+bool depthTest = true;
+bool wireframe = false;
+glm::vec3 objectPosition(0.0f);
+float angleX = 30.0f, angleY = 30.0f;
+
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
 string filetobuf(const char* name)
@@ -176,7 +186,8 @@ void DrawScene()
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
     glBindVertexArray(vao);
 
-    glEnable(GL_DEPTH_TEST);
+    if (depthTest) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
 
     //--- 좌표축까지 도형의 행렬로 그리면 같이 이동하고 회전해 버린다.
     //--- 축에는 항상 같은 행렬을 보내서 화면 중앙에 고정한다.
@@ -188,11 +199,28 @@ void DrawScene()
 
     //--- 먼저 자기 중심에서 회전한 뒤 이동해야 원점 주위를 공전하지 않는다.
     //--- T * Rx * Ry는 정점에 오른쪽부터 적용된다.
-    glm::mat4 model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f));
-    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(1, 0, 0));
-    model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0, 1, 0));
+    glm::mat4 model = glm::translate(glm::mat4(1.0f), objectPosition);
+    model = glm::rotate(model, glm::radians(angleX), glm::vec3(1, 0, 0));
+    model = glm::rotate(model, glm::radians(angleY), glm::vec3(0, 1, 0));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+    if (objectType == 1) glDrawArrays(GL_TRIANGLES, 0, 36);
+    else if (objectType == 2) glDrawArrays(GL_TRIANGLES, 36, 18);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+}
+
+//--- 한 번 누를 때 한 번 바뀌는 명령은 콜백으로 처리한다.
+void KeyCallback(GLFWwindow*, int key, int, int action, int mods)
+{
+    if (action != GLFW_PRESS) return;
+    //--- GLFW 키 코드는 대소문자가 같아서 Shift 상태도 함께 확인해야 한다.
+    bool upper = (mods & GLFW_MOD_SHIFT) != 0;
+    switch (key) {
+    case GLFW_KEY_C: objectType = 1; break;
+    case GLFW_KEY_P: objectType = 2; break;
+    case GLFW_KEY_H: depthTest = !depthTest; break;
+    case GLFW_KEY_W: wireframe = !upper; break; // w: 선, Shift+W: 면
+    }
 }
 
 void InputProcess(GLFWwindow* window)
@@ -201,6 +229,7 @@ void InputProcess(GLFWwindow* window)
         glfwSetWindowShouldClose(window, true);
 }
 
+
 int main()
 {
     //--- GLFW, OpenGL 컨텍스트, GLEW 초기화
@@ -208,7 +237,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "cube", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_14 - Vertex Colors and Transform", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
@@ -222,6 +251,10 @@ int main()
     InitBuffer();
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(1);
+    glfwSetKeyCallback(window, KeyCallback);
+    cout << "C: cube | P: pyramid | H: depth test on/off\n"
+         << "W: wireframe | Shift+W: solid\n"
+         << "Esc: exit\n";
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
