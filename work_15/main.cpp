@@ -28,6 +28,34 @@ void UpdateAnimation(float dt);
 //--- 도형 전체의 움직임과 각 면의 움직임은 따로 기억해야 한다.
 bool drawCube = true, depthTest = true, spinObject = false;
 float objectAngle = 0.0f;
+bool spinTop = false, spinSide = false, frontOpen = false, backHidden = false;
+float topAngle = 0.0f, sideAngle = 0.0f, frontAngle = 0.0f, backScale = 1.0f;
+const glm::vec3 faceCenters[6] = {
+    {0,0,0.5f}, {0,0,-0.5f}, {-0.5f,0,0}, {0.5f,0,0}, {0,0.5f,0}, {0,-0.5f,0}
+};
+
+void ResetFaces()
+{
+    spinTop = spinSide = frontOpen = backHidden = false;
+    topAngle = sideAngle = frontAngle = 0.0f;
+    backScale = 1.0f;
+}
+
+//--- 회전축이 원점을 지나지 않으면 기준점을 원점으로 옮겨서 회전해야 한다.
+//--- 정점에는 오른쪽부터 적용되므로 T(기준점) * R * T(-기준점) 순서다.
+glm::mat4 RotateAt(glm::vec3 pivot, float angle, glm::vec3 axis)
+{
+    glm::mat4 transform = glm::translate(glm::mat4(1.0f), pivot);
+    transform = glm::rotate(transform, glm::radians(angle), axis);
+    return glm::translate(transform, -pivot);
+}
+
+//--- 목표 각도나 크기를 넘지 않게 조금씩 접근시키면 열기/닫기에도 쓸 수 있다.
+float Approach(float value, float target, float step)
+{
+    return value < target ? min(value + step, target) : max(value - step, target);
+}
+
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
 string filetobuf(const char* name)
@@ -173,6 +201,20 @@ void InitBuffer()
     glEnableVertexAttribArray(1);
 }
 
+//--- 각 면의 변환만 계산한다. 전체 도형의 회전은 DrawScene에서 나중에 곱한다.
+glm::mat4 FaceTransform(int face)
+{
+    if (face == 4) return RotateAt(faceCenters[4], topAngle, glm::vec3(0,0,1));
+    if (face == 0) return RotateAt(glm::vec3(0,0.5f,0.5f), -frontAngle, glm::vec3(1,0,0));
+    if (face == 3) return RotateAt(faceCenters[3], sideAngle, glm::vec3(0,1,0));
+    if (face == 1) {
+        //--- 원점 기준으로 축소하면 뒷면이 중앙으로 이동한다. 면 중심을 기준으로 줄인다.
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), faceCenters[1]);
+        transform = glm::scale(transform, glm::vec3(backScale));
+        return glm::translate(transform, -faceCenters[1]);
+    }
+    return glm::mat4(1.0f);
+}
 
 void DrawScene()
 {
@@ -201,8 +243,8 @@ void DrawScene()
     glm::mat4 object = glm::rotate(base, glm::radians(objectAngle), glm::vec3(0,1,0));
     if (drawCube) {
         for (int face = 0; face < 6; ++face) {
-            //--- 지금은 모든 면에 같은 행렬을 적용해서 도형 전체를 자전시킨다.
-            glm::mat4 model = object;
+            //--- 면의 움직임을 먼저 적용한 뒤 전체 도형을 회전시킨다.
+            glm::mat4 model = object * FaceTransform(face);
             glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
             glDrawArrays(GL_TRIANGLES, face * 6, 6);
         }
@@ -221,10 +263,18 @@ void KeyCallback(GLFWwindow*, int key, int, int action, int)
     if (key == GLFW_KEY_P) { drawCube = !drawCube; return; }
     if (key == GLFW_KEY_Y) { spinObject = !spinObject; return; }
     if (key == GLFW_KEY_R) {
+        ResetFaces();
         drawCube = depthTest = true;
         spinObject = false;
         objectAngle = 0.0f;
         return;
+    }
+    if (!drawCube) return; //--- 아래 명령은 육면체의 면에만 적용한다.
+    if (key == GLFW_KEY_T || key == GLFW_KEY_F || key == GLFW_KEY_S || key == GLFW_KEY_B) {
+        if (key == GLFW_KEY_T) spinTop = !spinTop;
+        if (key == GLFW_KEY_F) frontOpen = !frontOpen;
+        if (key == GLFW_KEY_S) spinSide = !spinSide;
+        if (key == GLFW_KEY_B) backHidden = !backHidden;
     }
 }
 
@@ -240,6 +290,11 @@ void UpdateAnimation(float dt)
 {
     //--- 키 콜백에서 방향/목표만 정하고 실제 값은 매 프레임 조금씩 바꾼다.
     if (spinObject) objectAngle = fmod(objectAngle + 45.0f * dt, 360.0f);
+    if (!drawCube) return; //--- 사각뿔을 보는 동안 육면체의 면 애니메이션은 잠시 멈춘다.
+    if (spinTop) topAngle = fmod(topAngle + 60.0f * dt, 360.0f);
+    if (spinSide) sideAngle = fmod(sideAngle + 60.0f * dt, 360.0f);
+    frontAngle = Approach(frontAngle, frontOpen ? 90.0f : 0.0f, 60.0f * dt);
+    backScale = Approach(backScale, backHidden ? 0.0f : 1.0f, 0.7f * dt);
 }
 
 int main()
@@ -264,8 +319,8 @@ int main()
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(1);
     glfwSetKeyCallback(window, KeyCallback);
-    cout << "H: depth | P: cube/pyramid | Y: spin | R: reset | Q/Esc: quit\n";
-
+    cout << "H: depth | P: cube/pyramid | Y: spin | R: reset | Q/Esc: quit\n"
+         << "T: top spin | F: front open/close | S: side spin | B: back shrink/grow\n";
 
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
