@@ -9,6 +9,7 @@
 #include <sstream>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -22,6 +23,7 @@ int screenWidth = WIDTH, screenHeight = HEIGHT;
 void InputProcess(GLFWwindow* window);
 void DrawScene();
 void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void UpdateAnimation(float deltaTime);
 
 //--- 입력은 상태만 바꾸고, DrawScene은 이 상태를 읽어서 그리도록 나눈다.
 //--- 처음에는 좌표축만 보이고 C 또는 P를 눌러 도형을 선택한다.
@@ -30,6 +32,8 @@ bool depthTest = true;
 bool wireframe = false;
 glm::vec3 objectPosition(0.0f);
 float angleX = 30.0f, angleY = 30.0f;
+int rotateX = 0, rotateY = 0; // 0: 정지, 1: 양의 방향, -1: 음의 방향
+float deltaTime = 0.0f;
 
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
@@ -220,6 +224,14 @@ void KeyCallback(GLFWwindow*, int key, int, int action, int mods)
     case GLFW_KEY_P: objectType = 2; break;
     case GLFW_KEY_H: depthTest = !depthTest; break;
     case GLFW_KEY_W: wireframe = !upper; break; // w: 선, Shift+W: 면
+    case GLFW_KEY_X: rotateX = upper ? -1 : 1; break;
+    case GLFW_KEY_Y: rotateY = upper ? -1 : 1; break;
+    case GLFW_KEY_S:
+        //--- 위치만 돌려놓으면 다음 프레임에 또 회전하므로 방향 상태도 지운다.
+        objectPosition = glm::vec3(0.0f);
+        angleX = angleY = 30.0f;
+        rotateX = rotateY = 0;
+        break;
     }
 }
 
@@ -227,8 +239,24 @@ void InputProcess(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+    if (objectType == 0) return;
+    //--- 방향키는 누르는 동안 계속 움직여야 하므로 매 프레임 폴링한다.
+    //--- 초당 이동량에 경과 시간을 곱하면 컴퓨터 속도에 덜 영향을 받는다.
+    float distance = 0.6f * deltaTime;
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) objectPosition.x -= distance;
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) objectPosition.x += distance;
+    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) objectPosition.y += distance;
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) objectPosition.y -= distance;
 }
 
+void UpdateAnimation(float dt)
+{
+    if (objectType == 0) return;
+    //--- 키를 놓아도 방향을 기억하고 있으므로 회전 애니메이션은 계속된다.
+    //--- 각도가 끝없이 커지지 않도록 한 바퀴를 넘으면 정리한다.
+    angleX = fmod(angleX + rotateX * 60.0f * dt, 360.0f);
+    angleY = fmod(angleY + rotateY * 60.0f * dt, 360.0f);
+}
 
 int main()
 {
@@ -254,7 +282,8 @@ int main()
     glfwSetKeyCallback(window, KeyCallback);
     cout << "C: cube | P: pyramid | H: depth test on/off\n"
          << "W: wireframe | Shift+W: solid\n"
-         << "Esc: exit\n";
+         << "X/Y: positive rotation | Shift+X/Y: negative rotation\n"
+         << "Arrows: move | S: reset position/rotation and stop | Esc: exit\n";
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
@@ -266,9 +295,15 @@ int main()
     glViewport(0, 0, screenWidth, screenHeight);
 
     //--- 메인 루프
+    double previousTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
+        double currentTime = glfwGetTime();
+        //--- 창을 끌거나 중단했다 돌아왔을 때 한 번에 멀리 움직이지 않도록 제한한다.
+        deltaTime = min(float(currentTime - previousTime), 0.05f);
+        previousTime = currentTime;
         glfwPollEvents();
         InputProcess(window);
+        UpdateAnimation(deltaTime);
         DrawScene();
         glfwSwapBuffers(window);
     }
