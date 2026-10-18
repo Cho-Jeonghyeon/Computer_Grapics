@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <algorithm>
 #include <cmath>
+#include <random>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -30,15 +31,24 @@ bool drawCube = true, depthTest = true, spinObject = false;
 float objectAngle = 0.0f;
 bool spinTop = false, spinSide = false, frontOpen = false, backHidden = false;
 float topAngle = 0.0f, sideAngle = 0.0f, frontAngle = 0.0f, backScale = 1.0f;
+int groupMode = 0; // 0: 개별 면, 1: 모서리 회전, 2: 자리 교환, 4/5: 네 면 공전
+bool groupRunning = false;
+float groupAngle = 0.0f;
+int pairFirst = 0, pairSecond = 3;
+glm::vec3 edgePivot(0.5f, 0.0f, 0.5f);
 const glm::vec3 faceCenters[6] = {
     {0,0,0.5f}, {0,0,-0.5f}, {-0.5f,0,0}, {0.5f,0,0}, {0,0.5f,0}, {0,-0.5f,0}
 };
+mt19937 randomEngine(random_device{}());
 
 void ResetFaces()
 {
     spinTop = spinSide = frontOpen = backHidden = false;
     topAngle = sideAngle = frontAngle = 0.0f;
     backScale = 1.0f;
+    groupMode = 0;
+    groupRunning = false;
+    groupAngle = 0.0f;
 }
 
 //--- 회전축이 원점을 지나지 않으면 기준점을 원점으로 옮겨서 회전해야 한다.
@@ -204,6 +214,19 @@ void InitBuffer()
 //--- 각 면의 변환만 계산한다. 전체 도형의 회전은 DrawScene에서 나중에 곱한다.
 glm::mat4 FaceTransform(int face)
 {
+    if (groupMode == 1 && (face == pairFirst || face == pairSecond))
+        return RotateAt(edgePivot, groupAngle, glm::vec3(0,1,0));
+    if (groupMode == 2 && (face == pairFirst || face == pairSecond)) {
+        //--- 앞->오른쪽->뒤->왼쪽 순서가 +y 회전 방향이다.
+        //--- 첫 면은 +90도, 다음 면은 -90도로 움직이면 서로의 자리에 도착한다.
+        float angle = face == pairFirst ? groupAngle : -groupAngle;
+        return RotateAt(glm::vec3(0), angle, glm::vec3(0,1,0));
+    }
+    if (groupMode == 4 && face < 4)
+        return RotateAt(glm::vec3(0), groupAngle, glm::vec3(0,1,0));
+    //--- x축 공전에는 윗면, 아랫면, 앞면, 뒷면을 사용한다.
+    if (groupMode == 5 && (face == 0 || face == 1 || face == 4 || face == 5))
+        return RotateAt(glm::vec3(0), groupAngle, glm::vec3(1,0,0));
     if (face == 4) return RotateAt(faceCenters[4], topAngle, glm::vec3(0,0,1));
     if (face == 0) return RotateAt(glm::vec3(0,0.5f,0.5f), -frontAngle, glm::vec3(1,0,0));
     if (face == 3) return RotateAt(faceCenters[3], sideAngle, glm::vec3(0,1,0));
@@ -271,10 +294,31 @@ void KeyCallback(GLFWwindow*, int key, int, int action, int)
     }
     if (!drawCube) return; //--- 아래 명령은 육면체의 면에만 적용한다.
     if (key == GLFW_KEY_T || key == GLFW_KEY_F || key == GLFW_KEY_S || key == GLFW_KEY_B) {
+        //--- 그룹 변환 상태에서 개별 면을 조작하면 기준점이 달라져서 먼저 원상복구한다.
+        if (groupMode != 0) ResetFaces();
         if (key == GLFW_KEY_T) spinTop = !spinTop;
         if (key == GLFW_KEY_F) frontOpen = !frontOpen;
         if (key == GLFW_KEY_S) spinSide = !spinSide;
         if (key == GLFW_KEY_B) backHidden = !backHidden;
+    } else if (key == GLFW_KEY_1 || key == GLFW_KEY_2 || key == GLFW_KEY_4 || key == GLFW_KEY_5) {
+        int mode = key - GLFW_KEY_0;
+        if ((mode == 4 || mode == 5) && groupMode == mode) {
+            groupRunning = !groupRunning;
+            return;
+        }
+        ResetFaces();
+        groupMode = mode;
+        groupRunning = true;
+        if (mode == 1 || mode == 2) {
+            //--- 옆면을 둘레 순서로 놓고 연속한 두 면을 고르면 항상 모서리를 공유한다.
+            const int ring[4] = {0, 3, 1, 2};
+            int index = uniform_int_distribution<int>(0, 3)(randomEngine);
+            pairFirst = ring[index];
+            pairSecond = ring[(index + 1) % 4];
+            //--- 인접한 두 면 중심을 더하면 공통 세로 모서리의 중점이 된다.
+            edgePivot = faceCenters[pairFirst] + faceCenters[pairSecond];
+            cout << "Selected faces: " << pairFirst << ", " << pairSecond << endl;
+        }
     }
 }
 
@@ -295,6 +339,15 @@ void UpdateAnimation(float dt)
     if (spinSide) sideAngle = fmod(sideAngle + 60.0f * dt, 360.0f);
     frontAngle = Approach(frontAngle, frontOpen ? 90.0f : 0.0f, 60.0f * dt);
     backScale = Approach(backScale, backHidden ? 0.0f : 1.0f, 0.7f * dt);
+    if (groupRunning) {
+        if (groupMode == 1 || groupMode == 2) {
+            float target = groupMode == 1 ? 360.0f : 90.0f;
+            groupAngle = Approach(groupAngle, target, 60.0f * dt);
+            if (groupAngle >= target) groupRunning = false;
+        } else {
+            groupAngle = fmod(groupAngle + 45.0f * dt, 360.0f);
+        }
+    }
 }
 
 int main()
@@ -320,8 +373,9 @@ int main()
     glfwSwapInterval(1);
     glfwSetKeyCallback(window, KeyCallback);
     cout << "H: depth | P: cube/pyramid | Y: spin | R: reset | Q/Esc: quit\n"
-         << "T: top spin | F: front open/close | S: side spin | B: back shrink/grow\n";
-
+         << "T: top spin | F: front open/close | S: side spin | B: back shrink/grow\n"
+         << "1: adjacent faces hinge 360 | 2: swap adjacent faces\n"
+         << "4: four sides orbit Y | 5: top/bottom/front/back orbit X (press again to pause)\n";
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
