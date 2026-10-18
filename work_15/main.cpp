@@ -8,6 +8,8 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <algorithm>
+#include <cmath>
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -20,6 +22,12 @@ int screenWidth = WIDTH, screenHeight = HEIGHT;
 
 void InputProcess(GLFWwindow* window);
 void DrawScene();
+void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void UpdateAnimation(float dt);
+
+//--- 도형 전체의 움직임과 각 면의 움직임은 따로 기억해야 한다.
+bool drawCube = true, depthTest = true, spinObject = false;
+float objectAngle = 0.0f;
 
 //--- 셰이더 파일 읽기, 컴파일, 프로그램 연결
 string filetobuf(const char* name)
@@ -92,7 +100,8 @@ bool InitShader()
     return result == GL_TRUE;
 }
 
-//--- 육면체, 사각뿔, 좌표축 순서로 정점을 저장하고 면마다 색상을 지정한다.
+//--- 육면체 36개, 사각뿔 18개, 좌표축 6개를 한 버퍼에 저장한다.
+//--- 면마다 같은 색을 배정하고, 그릴 때 해당 면의 정점 구간만 골라 쓴다.
 void InitBuffer()
 {
     const GLfloat positions[][3] = {
@@ -164,38 +173,73 @@ void InitBuffer()
     glEnableVertexAttribArray(1);
 }
 
+
 void DrawScene()
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (depthTest) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
     glUseProgram(shaderProgramID);
-
-    //--- 모델링 변환: 원점에 육면체 하나를 배치한다.
-    glm::mat4 model = glm::mat4(1.0f);
-    //--- 뷰잉 변환: 세 면이 보이는 위치에서 원점을 바라본다.
-    glm::mat4 view = glm::lookAt(glm::vec3(2.0f, 1.5f, 3.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    //--- 투영 변환: 현재 창의 종횡비로 원근 투영한다.
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f),
-        float(screenWidth) / float(screenHeight), 0.1f, 100.0f);
-
-    GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
-    GLint viewLoc = glGetUniformLocation(shaderProgramID, "view");
-    GLint projLoc = glGetUniformLocation(shaderProgramID, "projection");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, &view[0][0]);
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, &projection[0][0]);
-
     glBindVertexArray(vao);
+    int side = min(screenWidth, screenHeight);
+    glViewport((screenWidth-side)/2, (screenHeight-side)/2, side, side);
+
+    //--- 면을 펼치거나 모서리를 중심으로 돌려도 잘 보이도록 공간에 여유를 둔다.
+    glm::mat4 view(1.0f);
+    glm::mat4 projection = glm::ortho(-1.8f, 1.8f, -1.8f, 1.8f, -4.0f, 4.0f);
+    GLint modelLoc = glGetUniformLocation(shaderProgramID, "model");
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, &view[0][0]);
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "projection"), 1, GL_FALSE, &projection[0][0]);
+
+    glm::mat4 base(1.0f);
+    base = glm::rotate(base, glm::radians(30.0f), glm::vec3(1,0,0));
+    base = glm::rotate(base, glm::radians(30.0f), glm::vec3(0,1,0));
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &base[0][0]);
     glDrawArrays(GL_LINES, 54, 6);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glm::mat4 object = glm::rotate(base, glm::radians(objectAngle), glm::vec3(0,1,0));
+    if (drawCube) {
+        for (int face = 0; face < 6; ++face) {
+            //--- 지금은 모든 면에 같은 행렬을 적용해서 도형 전체를 자전시킨다.
+            glm::mat4 model = object;
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+            glDrawArrays(GL_TRIANGLES, face * 6, 6);
+        }
+    } else {
+        //--- 사각뿔은 전체 자전만 적용한다. 각 면의 색상은 버퍼에 이미 들어 있다.
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &object[0][0]);
+        glDrawArrays(GL_TRIANGLES, 36, 18);
+    }
+}
+
+void KeyCallback(GLFWwindow*, int key, int, int action, int)
+{
+    //--- 토글 명령은 누르는 순간만 처리해서 길게 눌러도 여러 번 뒤집히지 않게 한다.
+    if (action != GLFW_PRESS) return;
+    if (key == GLFW_KEY_H) { depthTest = !depthTest; return; }
+    if (key == GLFW_KEY_P) { drawCube = !drawCube; return; }
+    if (key == GLFW_KEY_Y) { spinObject = !spinObject; return; }
+    if (key == GLFW_KEY_R) {
+        drawCube = depthTest = true;
+        spinObject = false;
+        objectAngle = 0.0f;
+        return;
+    }
 }
 
 void InputProcess(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    //--- 종료는 현재 키 상태만 확인하면 되므로 폴링으로 처리한다.
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
+}
+
+void UpdateAnimation(float dt)
+{
+    //--- 키 콜백에서 방향/목표만 정하고 실제 값은 매 프레임 조금씩 바꾼다.
+    if (spinObject) objectAngle = fmod(objectAngle + 45.0f * dt, 360.0f);
 }
 
 int main()
@@ -205,7 +249,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "cube", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_15 - Face Animation", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
@@ -219,6 +263,10 @@ int main()
     InitBuffer();
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(1);
+    glfwSetKeyCallback(window, KeyCallback);
+    cout << "H: depth | P: cube/pyramid | Y: spin | R: reset | Q/Esc: quit\n";
+
+
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
@@ -230,9 +278,15 @@ int main()
     glViewport(0, 0, screenWidth, screenHeight);
 
     //--- 메인 루프
+    double previousTime = glfwGetTime();
     while (!glfwWindowShouldClose(window)) {
+        double now = glfwGetTime();
+        //--- 초당 변화량을 사용하고 긴 정지 뒤에는 갑자기 튀지 않도록 시간을 제한한다.
+        float dt = min(float(now - previousTime), 0.05f);
+        previousTime = now;
         glfwPollEvents();
         InputProcess(window);
+        UpdateAnimation(dt);
         DrawScene();
         glfwSwapBuffers(window);
     }
