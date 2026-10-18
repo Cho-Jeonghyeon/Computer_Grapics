@@ -208,10 +208,10 @@ void InitBuffer()
 void DrawScene()
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
-    glClearColor(1, 1, 1, 1);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
-    glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0), glm::vec3(0, 1, 0));
+    glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     float aspect = float(screenWidth) / float(screenHeight);
     glm::mat4 projection = aspect >= 1.0f
         ? glm::ortho(-2.4f * aspect, 2.4f * aspect, -2.4f, 2.4f, 0.1f, 20.0f)
@@ -220,34 +220,59 @@ void DrawScene()
     glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, &view[0][0]);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "projection"), 1, GL_FALSE, &projection[0][0]);
     glBindVertexArray(vao);
-    //--- 기준 축과 두 도형의 기준 자세를 X/Y축으로 각각 30도 기울인다.
-    glm::mat4 tilt = glm::rotate(glm::mat4(1), glm::radians(30.0f), glm::vec3(1, 0, 0));
+
+    //--- 제출 자료의 흐름대로 기준 축과 물체 모두 X/Y축으로 30도 기울여 놓는다.
+    glm::mat4 tilt = glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), glm::vec3(1, 0, 0));
     tilt = glm::rotate(tilt, glm::radians(30.0f), glm::vec3(0, 1, 0));
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &tilt[0][0]);
     glDrawArrays(GL_LINES, AXIS_FIRST, AXIS_COUNT);
-    //--- 같은 버퍼에서 왼쪽 구와 오른쪽 정육면체를 골라 그린다.
+
+    float t = glm::clamp(specialTime / 2.0f, 0.0f, 1.0f);
     for (int i = 0; i < 2; ++i) {
         ObjectState& obj = objects[i];
+        glm::vec2 position = obj.startPosition + obj.move;
+        float animationScale = 1.0f;
+        float animationOrbit = 0.0f;
+        float animationSpin = 0.0f;
+        float animationY = 0.0f;
+        if (specialAnimation == 1 || specialAnimation == 2) {
+            glm::vec2 destination = objects[1 - i].startPosition;
+            position = glm::mix(obj.startPosition, destination, t) + obj.move;
+            if (specialAnimation == 2)
+                animationY = (i == 0 ? 1.0f : -1.0f) * sinf(t * 3.14159265f) * 0.7f;
+        }
+        if (specialAnimation == 3) {
+            float wave = sinf(specialTime * 2.0f);
+            animationScale = i == 0 ? 1.0f + 0.45f * wave : 1.0f - 0.35f * wave;
+            animationOrbit = specialTime * (i == 0 ? 0.8f : -0.8f);
+            animationSpin = specialTime * 1.6f;
+        }
+
+        //--- 행렬은 오른쪽부터 적용되므로 자기 회전/크기, 위치, 원점 기준 크기, 공전, 공통 기울기 순이다.
         glm::mat4 model = tilt;
-        model = glm::rotate(model, glm::radians(obj.orbitY), glm::vec3(0, 1, 0));
-        model = glm::scale(model, glm::vec3(obj.originScale));
-        model = glm::translate(model, glm::vec3(obj.startPosition + obj.move, 0.0f));
+        model = glm::rotate(model, glm::radians(obj.orbitY) + animationOrbit, glm::vec3(0, 1, 0));
+        model = glm::scale(model, glm::vec3(obj.originScale)); // 위치까지 원점 기준으로 확대/축소
+        model = glm::translate(model, glm::vec3(position.x, position.y + animationY, 0.0f));
         model = glm::rotate(model, glm::radians(obj.selfX), glm::vec3(1, 0, 0));
-        model = glm::rotate(model, glm::radians(obj.selfY), glm::vec3(0, 1, 0));
-        model = glm::scale(model, glm::vec3(obj.localScale));
+        model = glm::rotate(model, glm::radians(obj.selfY) + animationSpin, glm::vec3(0, 1, 0));
+        model = glm::scale(model, glm::vec3(obj.localScale * animationScale));
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, &model[0][0]);
+
         bool drawCube = (i == 1) != swappedShapes;
-        glDrawArrays(GL_TRIANGLES, drawCube ? CUBE_FIRST : SPHERE_FIRST, drawCube ? CUBE_COUNT : SPHERE_COUNT);
+        glDrawArrays(GL_TRIANGLES, drawCube ? CUBE_FIRST : SPHERE_FIRST,
+            drawCube ? CUBE_COUNT : SPHERE_COUNT);
     }
 }
 
 void InputProcess(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
     float now = float(glfwGetTime());
     float dt = lastFrameTime == 0.0f ? 0.0f : min(now - lastFrameTime, 0.05f);
     lastFrameTime = now;
-    //--- 계속 누르는 동안 변환을 반복하는 키는 매 프레임 폴링한다.
+
+    //--- 누르고 있는 동안 프레임 시간만큼 조금씩 바꾸면 컴퓨터 속도와 관계없이 조작감이 일정하다.
     for (int i = 0; i < 2; ++i) {
         if (!(selectedObjects & (1 << i))) continue;
         ObjectState& obj = objects[i];
@@ -256,9 +281,20 @@ void InputProcess(GLFWwindow* window)
         obj.orbitY += HeldDirection(window, GLFW_KEY_R) * 90.0f * dt;
         obj.localScale = glm::clamp(obj.localScale + HeldDirection(window, GLFW_KEY_A) * dt, 0.2f, 2.5f);
         obj.originScale = glm::clamp(obj.originScale + HeldDirection(window, GLFW_KEY_B) * dt, 0.2f, 2.5f);
+        //--- d는 왼쪽, Shift+d(대문자 D)는 오른쪽으로 움직이게 부호를 뒤집는다.
         obj.move.x -= HeldDirection(window, GLFW_KEY_D) * dt;
         obj.move.y += HeldDirection(window, GLFW_KEY_E) * dt;
     }
+    if (specialAnimation == 1 || specialAnimation == 2) {
+        specialTime += dt;
+        if (specialTime >= 2.0f) {
+            swap(objects[0].startPosition, objects[1].startPosition);
+            objects[0].move = objects[1].move = glm::vec2(0.0f);
+            specialAnimation = 0;
+            specialTime = 0.0f;
+        }
+    }
+    if (specialAnimation == 3) specialTime += dt;
 }
 
 float HeldDirection(GLFWwindow* window, int key)
@@ -283,12 +319,15 @@ void ResetScene()
 void KeyCallback(GLFWwindow*, int key, int, int action, int)
 {
     if (action != GLFW_PRESS) return;
-    //--- 한 번 눌러 상태를 바꾸는 선택과 초기화는 콜백으로 처리한다.
+    //--- 한번 눌렀을 때 선택/애니메이션 상태만 바꾸고, 계속 움직이는 입력은 아래 폴링에 맡긴다.
     if (key == GLFW_KEY_1) selectedObjects = 1;
     else if (key == GLFW_KEY_2) selectedObjects = 2;
     else if (key == GLFW_KEY_3) selectedObjects = 3;
     else if (key == GLFW_KEY_C) swappedShapes = !swappedShapes;
     else if (key == GLFW_KEY_S) ResetScene();
+    else if (key == GLFW_KEY_T) { specialAnimation = 1; specialTime = 0.0f; }
+    else if (key == GLFW_KEY_U) { specialAnimation = 2; specialTime = 0.0f; }
+    else if (key == GLFW_KEY_V) { specialAnimation = specialAnimation == 3 ? 0 : 3; specialTime = 0.0f; }
 }
 
 int main()
