@@ -266,7 +266,8 @@ void DrawScene()
 
 void InputProcess(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
     float now = float(glfwGetTime());
     float dt = lastFrameTime == 0.0f ? 0.0f : min(now - lastFrameTime, 0.05f);
@@ -337,7 +338,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "cube", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_17 - Coordinate Transform", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
