@@ -270,6 +270,8 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int mods)
     case GLFW_KEY_L: swapAnimation = !swapAnimation; break;
     case GLFW_KEY_G: barrelAnimation = !barrelAnimation; break;
     case GLFW_KEY_P: flagAnimation = !flagAnimation; break;
+    case GLFW_KEY_O: colorSet = (colorSet + 1) % 3; break;
+    case GLFW_KEY_C: resetRequested = true; break;
     //--- x/z? Shift+x/z? ???? ? ?? ?/? ???? ???.
     case GLFW_KEY_X: cameraMoveX += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
     case GLFW_KEY_Z: cameraMoveZ += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
@@ -307,6 +309,21 @@ void InputProcess(GLFWwindow* window)
     //--- ??? ?????? ?? ??? ??? ??? ????.
     if (cameraYawAnimation) cameraYaw += (reverseYaw ? -1.0f : 1.0f) * 0.7f * dt;
     if (cameraOrbitAnimation) cameraOrbit += (reverseOrbit ? -1.0f : 1.0f) * 0.5f * dt;
+
+    if (resetRequested) {
+        //--- c? ??? ??, ???, ?????, ???? ?? ??? ???.
+        tankPosition = glm::vec3(0.0f);
+        tankHeading = turretAngle = turretSwap = cameraYaw = cameraOrbit = 0.0f;
+        cameraMoveX = cameraMoveZ = 0.0f;
+        barrelAngle[0] = barrelAngle[1] = 0.0f;
+        flagAngle[0] = flagAngle[1] = 0.0f;
+        treadAnimation = turretAnimation = swapAnimation = false;
+        barrelAnimation = flagAnimation = false;
+        cameraYawAnimation = cameraOrbitAnimation = false;
+        reverseYaw = reverseOrbit = false;
+        colorSet = 0;
+        resetRequested = false;
+    }
 }
 
 int main()
@@ -316,7 +333,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_19 - Tank (Arrows move, X/Z camera, Y/R rotate)", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_19 - Tank (Arrows, D/T/L/G/P, X/Z, Y/R, O, C)", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
