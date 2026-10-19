@@ -4,6 +4,8 @@
 #include <gl/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -17,6 +19,24 @@ using namespace std;
 GLuint shaderProgramID = 0;
 GLuint vao = 0, vbo[2] = {};
 int screenWidth = WIDTH, screenHeight = HEIGHT;
+
+glm::vec3 tankPosition(0.0f, 0.0f, 0.0f);
+float tankHeading = 0.0f;
+float turretAngle = 0.0f;
+float barrelAngle[2] = { 0.0f, 0.0f };
+float flagAngle[2] = { 0.0f, 0.0f };
+float turretSwap = 0.0f;
+float animationTime = 0.0f;
+float cameraMoveX = 0.0f, cameraMoveZ = 0.0f;
+float cameraYaw = 0.0f, cameraOrbit = 0.0f;
+float previousFrameTime = 0.0f;
+bool treadAnimation = false, turretAnimation = false, swapAnimation = false;
+bool barrelAnimation = false, flagAnimation = false;
+bool cameraYawAnimation = false, cameraOrbitAnimation = false;
+bool reverseYaw = false, reverseOrbit = false;
+int colorSet = 0;
+bool resetRequested = false;
+
 
 void InputProcess(GLFWwindow* window);
 void DrawScene();
@@ -139,6 +159,13 @@ void InitBuffer()
     glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
     glEnableVertexAttribArray(1);
+}
+
+void DrawCube(const glm::mat4& model, const glm::vec3& tint)
+{
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "model"), 1, GL_FALSE, &model[0][0]);
+    glUniform3fv(glGetUniformLocation(shaderProgramID, "objectColor"), 1, &tint[0]);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
 void DrawScene()
