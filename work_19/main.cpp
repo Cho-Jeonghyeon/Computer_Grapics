@@ -173,6 +173,26 @@ float KeyDown(GLFWwindow* window, int key)
     return glfwGetKey(window, key) == GLFW_PRESS ? 1.0f : 0.0f;
 }
 
+//--- ??? ??? ?? ?, ?? ??? ?? ??? ??? ??? ????.
+glm::mat4 MakeCameraView()
+{
+    const glm::vec3 target(0.0f, 0.25f, 0.0f);
+    glm::vec3 cameraPosition(cameraMoveX, 3.5f, 7.0f + cameraMoveZ);
+
+    //--- ??? ???? ?? ?? ??? ??? y? ??? ???.
+    if (cameraOrbitAnimation) {
+        glm::mat4 orbit = glm::rotate(glm::mat4(1.0f), cameraOrbit, glm::vec3(0, 1, 0));
+        glm::vec3 fromTarget = cameraPosition - target;
+        cameraPosition = target + glm::vec3(orbit * glm::vec4(fromTarget, 0.0f));
+    }
+
+    //--- ??? ??? ??? ???? ???? ???? ??? ???.
+    glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), cameraYaw, glm::vec3(0, 1, 0));
+    glm::vec3 lookDirection = glm::normalize(target - cameraPosition);
+    lookDirection = glm::vec3(yaw * glm::vec4(lookDirection, 0.0f));
+    return glm::lookAt(cameraPosition, cameraPosition + lookDirection, glm::vec3(0, 1, 0));
+}
+
 void DrawScene()
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
@@ -182,16 +202,7 @@ void DrawScene()
     glBindVertexArray(vao);
 
     //--- 카메라의 위치와 바라보는 방향을 나누어 제자리 회전과 공전을 표현한다.
-    glm::vec3 cameraPosition(cameraMoveX, 3.5f, 7.0f + cameraMoveZ);
-    const glm::vec3 target(0.0f, 0.25f, 0.0f);
-    if (cameraOrbitAnimation) {
-        glm::mat4 orbit = glm::rotate(glm::mat4(1.0f), cameraOrbit, glm::vec3(0, 1, 0));
-        cameraPosition = glm::vec3(orbit * glm::vec4(cameraPosition, 1.0f));
-    }
-    glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), cameraYaw, glm::vec3(0, 1, 0));
-    glm::vec3 lookDirection = glm::normalize(target - cameraPosition);
-    lookDirection = glm::vec3(yaw * glm::vec4(lookDirection, 0.0f));
-    glm::mat4 view = glm::lookAt(cameraPosition, cameraPosition + lookDirection, glm::vec3(0, 1, 0));
+    glm::mat4 view = MakeCameraView();
     glm::mat4 projection = glm::perspective(glm::radians(45.0f),
         float(screenWidth) / float(screenHeight), 0.1f, 100.0f);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, "view"), 1, GL_FALSE, &view[0][0]);
@@ -248,7 +259,7 @@ void DrawScene()
     }
 }
 
-void KeyCallback(GLFWwindow* window, int key, int, int action, int)
+void KeyCallback(GLFWwindow* window, int key, int, int action, int mods)
 {
     if (action != GLFW_PRESS) return;
     //--- ??? ? ?? ?? ?? ?? ?????? ???? ????.
@@ -259,6 +270,12 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int)
     case GLFW_KEY_L: swapAnimation = !swapAnimation; break;
     case GLFW_KEY_G: barrelAnimation = !barrelAnimation; break;
     case GLFW_KEY_P: flagAnimation = !flagAnimation; break;
+    //--- x/z? Shift+x/z? ???? ? ?? ?/? ???? ???.
+    case GLFW_KEY_X: cameraMoveX += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
+    case GLFW_KEY_Z: cameraMoveZ += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
+    //--- y? ??? ??? ??, r? ?? ??? ?? ??? ?? ??.
+    case GLFW_KEY_Y: cameraYawAnimation = !cameraYawAnimation; reverseYaw = ((mods & GLFW_MOD_SHIFT) != 0); break;
+    case GLFW_KEY_R: cameraOrbitAnimation = !cameraOrbitAnimation; reverseOrbit = ((mods & GLFW_MOD_SHIFT) != 0); break;
     }
 }
 
@@ -287,6 +304,9 @@ void InputProcess(GLFWwindow* window)
     if (barrelAnimation) { barrelAngle[0] += 0.8f * dt; barrelAngle[1] -= 0.8f * dt; }
     if (flagAnimation) { flagAngle[0] += 1.2f * dt; flagAngle[1] -= 1.2f * dt; }
     turretSwap = swapAnimation ? min(1.0f, turretSwap + dt) : max(0.0f, turretSwap - dt);
+    //--- ??? ?????? ?? ??? ??? ??? ????.
+    if (cameraYawAnimation) cameraYaw += (reverseYaw ? -1.0f : 1.0f) * 0.7f * dt;
+    if (cameraOrbitAnimation) cameraOrbit += (reverseOrbit ? -1.0f : 1.0f) * 0.5f * dt;
 }
 
 int main()
@@ -296,7 +316,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_19 - Tank on the Ground", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "work_19 - Tank (Arrows move, X/Z camera, Y/R rotate)", nullptr, nullptr);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
