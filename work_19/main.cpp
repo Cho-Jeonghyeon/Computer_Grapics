@@ -173,20 +173,20 @@ float KeyDown(GLFWwindow* window, int key)
     return glfwGetKey(window, key) == GLFW_PRESS ? 1.0f : 0.0f;
 }
 
-//--- ??? ??? ?? ?, ?? ??? ?? ??? ??? ??? ????.
+//--- 카메라 위치와 시선을 계산해 제자리 회전과 공전을 나눈다.
 glm::mat4 MakeCameraView()
 {
     const glm::vec3 target(0.0f, 0.25f, 0.0f);
     glm::vec3 cameraPosition(cameraMoveX, 3.5f, 7.0f + cameraMoveZ);
 
-    //--- ??? ???? ?? ?? ??? ??? y? ??? ???.
+    //--- 공전은 장면 중심을 기준으로 카메라 위치를 회전한다.
     if (cameraOrbitAnimation) {
         glm::mat4 orbit = glm::rotate(glm::mat4(1.0f), cameraOrbit, glm::vec3(0, 1, 0));
         glm::vec3 fromTarget = cameraPosition - target;
         cameraPosition = target + glm::vec3(orbit * glm::vec4(fromTarget, 0.0f));
     }
 
-    //--- ??? ??? ??? ???? ???? ???? ??? ???.
+    //--- 제자리 회전은 위치를 고정하고 시선 방향을 바꾼다.
     glm::mat4 yaw = glm::rotate(glm::mat4(1.0f), cameraYaw, glm::vec3(0, 1, 0));
     glm::vec3 lookDirection = glm::normalize(target - cameraPosition);
     lookDirection = glm::vec3(yaw * glm::vec4(lookDirection, 0.0f));
@@ -239,8 +239,7 @@ void DrawScene()
     for (int side = 0; side < 2; ++side) {
         float x = side == 0 ? -0.30f : 0.30f;
         float z = (side == 0 ? -0.28f : 0.28f) * (1.0f - 2.0f * turretSwap);
-        glm::mat4 upper = glm::translate(root, glm::vec3(x, 0.88f, z));
-        upper = glm::rotate(upper, turretAngle, glm::vec3(0, 1, 0));
+        glm::mat4 upper = glm::translate(center, glm::vec3(x, 0.34f, z));
         DrawCube(glm::scale(upper, glm::vec3(0.52f, 0.30f, 0.72f)), colors[2]);
 
         //--- 포신 둘은 y축 회전 방향을 반대로 한다.
@@ -262,7 +261,7 @@ void DrawScene()
 void KeyCallback(GLFWwindow* window, int key, int, int action, int mods)
 {
     if (action != GLFW_PRESS) return;
-    //--- ??? ? ?? ?? ?? ?? ?????? ???? ????.
+    //--- 콜백은 한 번 누른 명령만 받아 상태를 바꾼다.
     switch (key) {
     case GLFW_KEY_Q: case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, true); break;
     case GLFW_KEY_D: treadAnimation = !treadAnimation; break;
@@ -272,10 +271,10 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int mods)
     case GLFW_KEY_P: flagAnimation = !flagAnimation; break;
     case GLFW_KEY_O: colorSet = (colorSet + 1) % 3; break;
     case GLFW_KEY_C: resetRequested = true; break;
-    //--- x/z? Shift+x/z? ???? ? ?? ?/? ???? ???.
-    case GLFW_KEY_X: cameraMoveX += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
-    case GLFW_KEY_Z: cameraMoveZ += ((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f; break;
-    //--- y? ??? ??? ??, r? ?? ??? ?? ??? ?? ??.
+    //--- x/z와 Shift+x/z로 카메라를 각 축의 양과 음 방향으로 이동한다.
+    case GLFW_KEY_X: cameraMoveX = glm::clamp(cameraMoveX + (((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f), -5.0f, 5.0f); break;
+    case GLFW_KEY_Z: cameraMoveZ = glm::clamp(cameraMoveZ + (((mods & GLFW_MOD_SHIFT) != 0) ? -0.5f : 0.5f), -3.0f, 10.0f); break;
+    //--- y는 제자리 회전, r는 장면 중심 공전을 켜고 끄는다.
     case GLFW_KEY_Y: cameraYawAnimation = !cameraYawAnimation; reverseYaw = ((mods & GLFW_MOD_SHIFT) != 0); break;
     case GLFW_KEY_R: cameraOrbitAnimation = !cameraOrbitAnimation; reverseOrbit = ((mods & GLFW_MOD_SHIFT) != 0); break;
     }
@@ -283,13 +282,13 @@ void KeyCallback(GLFWwindow* window, int key, int, int action, int mods)
 
 void InputProcess(GLFWwindow* window)
 {
-    //--- ??? ? ?? ??? ?? ??? ??? ??? ???? ???.
+    //--- 시간 차이를 이용해 프레임 속도에 따른 차이를 줄인다.
     float now = float(glfwGetTime());
     float dt = previousFrameTime == 0.0f ? 0.0f : min(now - previousFrameTime, 0.05f);
     previousFrameTime = now;
     animationTime += dt;
 
-    //--- ??? ?? ???? ? ??? ?? xz ?? ??? ??? ????.
+    //--- 방향키를 계속 확인해 탱크를 xz 평면에서 움직인다.
     glm::vec2 move(KeyDown(window, GLFW_KEY_RIGHT) - KeyDown(window, GLFW_KEY_LEFT),
         KeyDown(window, GLFW_KEY_DOWN) - KeyDown(window, GLFW_KEY_UP));
     if (glm::length(move) > 1.0f) move = glm::normalize(move);
@@ -301,17 +300,17 @@ void InputProcess(GLFWwindow* window)
     tankPosition.x = glm::clamp(tankPosition.x, -4.0f, 4.0f);
     tankPosition.z = glm::clamp(tankPosition.z, -5.5f, 5.5f);
 
-    //--- ?? ? ?????? ??? ?? ????, ?? ??? ??? ????.
+    //--- 켜진 부품 애니메이션만 갱신하고 좌우 부품은 반대로 움직인다.
     if (turretAnimation) turretAngle += 0.8f * dt;
     if (barrelAnimation) { barrelAngle[0] += 0.8f * dt; barrelAngle[1] -= 0.8f * dt; }
     if (flagAnimation) { flagAngle[0] += 1.2f * dt; flagAngle[1] -= 1.2f * dt; }
     turretSwap = swapAnimation ? min(1.0f, turretSwap + dt) : max(0.0f, turretSwap - dt);
-    //--- ??? ?????? ?? ??? ??? ??? ????.
+    //--- 카메라도 독립된 각도로 움직여 탱크와 분리해 본다.
     if (cameraYawAnimation) cameraYaw += (reverseYaw ? -1.0f : 1.0f) * 0.7f * dt;
     if (cameraOrbitAnimation) cameraOrbit += (reverseOrbit ? -1.0f : 1.0f) * 0.5f * dt;
 
     if (resetRequested) {
-        //--- c? ??? ??, ???, ?????, ???? ?? ??? ???.
+        //--- c를 누르면 위치와 회전, 애니메이션, 색을 초기화한다.
         tankPosition = glm::vec3(0.0f);
         tankHeading = turretAngle = turretSwap = cameraYaw = cameraOrbit = 0.0f;
         cameraMoveX = cameraMoveZ = 0.0f;
