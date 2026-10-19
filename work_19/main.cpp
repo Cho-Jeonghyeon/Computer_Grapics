@@ -168,6 +168,11 @@ void DrawCube(const glm::mat4& model, const glm::vec3& tint)
     glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
+float KeyDown(GLFWwindow* window, int key)
+{
+    return glfwGetKey(window, key) == GLFW_PRESS ? 1.0f : 0.0f;
+}
+
 void DrawScene()
 {
     if (screenWidth <= 0 || screenHeight <= 0) return;
@@ -243,10 +248,45 @@ void DrawScene()
     }
 }
 
+void KeyCallback(GLFWwindow* window, int key, int, int action, int)
+{
+    if (action != GLFW_PRESS) return;
+    //--- ??? ? ?? ?? ?? ?? ?????? ???? ????.
+    switch (key) {
+    case GLFW_KEY_Q: case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(window, true); break;
+    case GLFW_KEY_D: treadAnimation = !treadAnimation; break;
+    case GLFW_KEY_T: turretAnimation = !turretAnimation; break;
+    case GLFW_KEY_L: swapAnimation = !swapAnimation; break;
+    case GLFW_KEY_G: barrelAnimation = !barrelAnimation; break;
+    case GLFW_KEY_P: flagAnimation = !flagAnimation; break;
+    }
+}
+
 void InputProcess(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    //--- ??? ? ?? ??? ?? ??? ??? ??? ???? ???.
+    float now = float(glfwGetTime());
+    float dt = previousFrameTime == 0.0f ? 0.0f : min(now - previousFrameTime, 0.05f);
+    previousFrameTime = now;
+    animationTime += dt;
+
+    //--- ??? ?? ???? ? ??? ?? xz ?? ??? ??? ????.
+    glm::vec2 move(KeyDown(window, GLFW_KEY_RIGHT) - KeyDown(window, GLFW_KEY_LEFT),
+        KeyDown(window, GLFW_KEY_DOWN) - KeyDown(window, GLFW_KEY_UP));
+    if (glm::length(move) > 1.0f) move = glm::normalize(move);
+    if (glm::length(move) > 0.0f) {
+        tankPosition.x += move.x * 2.0f * dt;
+        tankPosition.z += move.y * 2.0f * dt;
+        tankHeading = atan2f(move.x, move.y);
+    }
+    tankPosition.x = glm::clamp(tankPosition.x, -4.0f, 4.0f);
+    tankPosition.z = glm::clamp(tankPosition.z, -5.5f, 5.5f);
+
+    //--- ?? ? ?????? ??? ?? ????, ?? ??? ??? ????.
+    if (turretAnimation) turretAngle += 0.8f * dt;
+    if (barrelAnimation) { barrelAngle[0] += 0.8f * dt; barrelAngle[1] -= 0.8f * dt; }
+    if (flagAnimation) { flagAngle[0] += 1.2f * dt; flagAngle[1] -= 1.2f * dt; }
+    turretSwap = swapAnimation ? min(1.0f, turretSwap + dt) : max(0.0f, turretSwap - dt);
 }
 
 int main()
@@ -272,6 +312,7 @@ int main()
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glfwSwapInterval(1);
+    glfwSetKeyCallback(window, KeyCallback);
 
     //--- 창 크기가 바뀌면 뷰포트와 투영에 사용할 크기를 갱신한다.
     glfwSetFramebufferSizeCallback(window, [](GLFWwindow*, int width, int height) {
